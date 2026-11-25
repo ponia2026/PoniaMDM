@@ -241,6 +241,7 @@ onMounted(async () => {
 
       <section class="card grow-card">
         <h2><svg class="hic" viewBox="0 0 24 24" aria-hidden="true" v-html="ICONS.status"></svg>{{ t('card.status') }}</h2>
+        <div class="scroll">
         <div class="row"><span class="pill" :class="pill.cls">{{ pill.text }}</span></div>
         <p class="line" v-for="(l, i) in statusLines" :key="i">{{ l }}</p>
 
@@ -272,6 +273,7 @@ onMounted(async () => {
           </div>
           <p v-if="r.data.more" class="hint">{{ t('st.more', { n: r.data.more }) }}</p>
         </template>
+        </div>
       </section>
     </main>
   </div>
@@ -304,8 +306,8 @@ body { background:var(--bg); color:var(--fg); overflow:hidden; user-select:none;
   font:13px/1.45 "Segoe UI Variable Text","Segoe UI","Microsoft JhengHei UI","Microsoft YaHei UI","Yu Gothic UI","Malgun Gothic",sans-serif }
 input[type=text], input:not([type]), textarea, pre, .file, .why, .line, .note { user-select:text }
 
-.app { display:flex; height:100vh }
-.tabs { width:200px; flex:none; padding:10px 8px; border-right:1px solid var(--line); background:var(--card); display:flex; flex-direction:column; gap:4px }
+.app { display:flex; height:100vh; padding:12px; gap:12px }
+.tabs { width:200px; flex:none; padding:10px 8px; border:1px solid var(--line); border-radius:12px; background:var(--card); display:flex; flex-direction:column; gap:4px }
 .tab { display:flex; align-items:center; gap:10px; width:100%; height:auto; min-height:46px; padding:6px 10px; text-align:left; border:0; border-radius:8px; background:none; font-size:14px; line-height:1.25 }
 .tab:hover { background:var(--sel) }
 .tab.on { background:var(--sel); color:var(--acc); font-weight:600 }
@@ -313,10 +315,11 @@ input[type=text], input:not([type]), textarea, pre, .file, .why, .line, .note { 
 .dot { width:9px; height:9px; border-radius:50%; flex:none; background:var(--line) }
 .dot.done { background:var(--ok) } .dot.offline { background:var(--off) }
 
-.pane { flex:1; min-width:0; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:10px }
-.pane > .card { max-width:600px }
+.pane { flex:1; min-width:0; overflow:hidden; display:flex; flex-direction:column; gap:10px }
+
 .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px }
-.grow-card { flex:1; min-height:140px }
+.grow-card { flex:1; min-height:0; display:flex; flex-direction:column }
+.scroll { flex:1; min-height:0; overflow-y:auto }
 h2 { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:700; margin:0 0 8px; padding-bottom:8px; border-bottom:1px solid var(--line); color:var(--fg) }
 .hic { width:18px; height:18px; flex:none; fill:none; stroke:var(--acc); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round }
 .tic { width:22px; height:22px; flex:none; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; color:var(--mut) }
@@ -337,8 +340,8 @@ button.danger { color:var(--err); border-color:var(--err) }
 .pill { display:inline-flex; align-items:center; padding:1px 10px; border-radius:12px; font-size:12px; border:1px solid var(--line); color:var(--mut) }
 .pill.ok { color:var(--ok); border-color:var(--ok) } .pill.off { color:var(--off); border-color:var(--off) }
 .pill.err { color:var(--err); border-color:var(--err) } .pill.busy { color:var(--acc); border-color:var(--acc) }
-.box { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 10px; max-height:180px; overflow:auto; font-size:12px }
-.box.tall { max-height:320px; padding:0 }
+.box { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:12px }
+.box.tall { padding:0; overflow:hidden }
 .note { color:#c0560f; margin:2px 0; font-size:12px }
 .why { color:var(--mut); font-size:12px }
 table { border-collapse:collapse; width:100% }
@@ -347,11 +350,11 @@ td { padding:2px 8px; border-bottom:1px solid var(--line); vertical-align:middle
 .file { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
 
 .modal { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; z-index:10 }
-.dialog { background:var(--card); border:1px solid var(--line); border-radius:8px; width:min(520px, 94vw); overflow:hidden }
+.dialog { background:var(--card); border:1px solid var(--line); border-radius:8px; width:min(380px, 94vw); overflow:hidden }
 .dtitle { display:flex; align-items:center; justify-content:space-between; padding:8px 8px 8px 14px; font-size:12px; border-bottom:1px solid var(--line) }
 .x { border:0; background:none; font-size:20px; line-height:1; height:28px; width:34px; padding:0 }
-.dbody { display:flex; align-items:center; gap:26px; padding:24px 28px }
-.logo { width:128px; height:128px; flex:none }
-.info { flex:1; text-align:center }
+.dbody { display:flex; align-items:center; justify-content:center; gap:16px; padding:18px 22px }
+.logo { width:96px; height:96px; flex:none }
+.info { text-align:center }
 .name { font-size:20px; font-weight:700 } .arch { font-size:15px; font-weight:700; margin-bottom:10px } .small { font-size:13px }
 </style>

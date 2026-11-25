@@ -21,7 +21,7 @@ from .main import app
 
 REPO = "https://github.com/ponia2026/PoniaMDM"
 HOMEPAGE = REPO
-HELP_URL = REPO + "#readme"
+HELP_URL = REPO + "/blob/main/docs/help.md"
 COPYRIGHT_URL = REPO + "/blob/main/NOTICE.md"
 
 LANGUAGES = [("en", "English"), ("zh-CN", "简体中文"), ("zh-TW", "繁體中文"), ("es", "Español"),
@@ -67,7 +67,8 @@ def save_file(window):
 def open_file(window):
     """File > Open file: replace the slots with the ones stored in a file."""
     import webview
-    p = _first(window.create_file_dialog(webview.OPEN_DIALOG, directory=settings.folder(), file_types=FILE_TYPES))
+    p = _pick_open(window) or _first(window.create_file_dialog(
+        webview.OPEN_DIALOG, directory=settings.folder(), file_types=FILE_TYPES))
     if not p:
         return
     try:
@@ -80,6 +81,76 @@ def open_file(window):
         return
     settings.save({"slots": data["slots"], "tab": data.get("tab", "pegasus")})
     window.evaluate_js("window.reloadSlots()")
+
+
+DEFAULT_FILE = "PoniaMDM.slots.json"
+
+
+def _pick_open(window):
+    """Windows "Open" dialog with the default file name already filled in (Open is one click away).
+
+    Returns the chosen path, or None when cancelled or when the native call is unavailable
+    (the caller then falls back to the generic dialog).
+    """
+    if sys.platform != "win32":
+        return None
+    import ctypes
+    from ctypes import wintypes
+
+    class OPENFILENAMEW(ctypes.Structure):
+        _fields_ = [
+            ("lStructSize", wintypes.DWORD), ("hwndOwner", wintypes.HWND), ("hInstance", wintypes.HINSTANCE),
+            ("lpstrFilter", wintypes.LPCWSTR), ("lpstrCustomFilter", wintypes.LPWSTR),
+            ("nMaxCustFilter", wintypes.DWORD), ("nFilterIndex", wintypes.DWORD),
+            ("lpstrFile", wintypes.LPWSTR), ("nMaxFile", wintypes.DWORD),
+            ("lpstrFileTitle", wintypes.LPWSTR), ("nMaxFileTitle", wintypes.DWORD),
+            ("lpstrInitialDir", wintypes.LPCWSTR), ("lpstrTitle", wintypes.LPCWSTR),
+            ("Flags", wintypes.DWORD), ("nFileOffset", wintypes.WORD), ("nFileExtension", wintypes.WORD),
+            ("lpstrDefExt", wintypes.LPCWSTR), ("lCustData", wintypes.LPARAM), ("lpfnHook", ctypes.c_void_p),
+            ("lpTemplateName", wintypes.LPCWSTR), ("pvReserved", ctypes.c_void_p),
+            ("dwReserved", wintypes.DWORD), ("FlagsEx", wintypes.DWORD),
+        ]
+
+    try:
+        folder = settings.folder()
+        buf = ctypes.create_unicode_buffer(DEFAULT_FILE, 1024)
+        flt = ctypes.create_unicode_buffer("PoniaMDM settings (*.json)\0*.json\0\0", 64)
+        try:
+            owner = int(window.native.Handle.ToInt64())
+        except Exception:
+            owner = 0
+        ofn = OPENFILENAMEW()
+        ofn.lStructSize = ctypes.sizeof(OPENFILENAMEW)
+        ofn.hwndOwner = owner
+        ofn.lpstrFilter = ctypes.cast(flt, wintypes.LPCWSTR)
+        ofn.nFilterIndex = 1
+        ofn.lpstrFile = ctypes.cast(buf, wintypes.LPWSTR)
+        ofn.nMaxFile = 1024
+        ofn.lpstrInitialDir = folder
+        ofn.Flags = 0x00001000 | 0x00000800 | 0x00080000 | 0x00000008   # file/path must exist, explorer style, keep cwd
+        if ctypes.windll.comdlg32.GetOpenFileNameW(ctypes.byref(ofn)):
+            return buf.value
+    except Exception:
+        return None
+    return ""
+
+
+def _window_size():
+    """Logical (width, height) that gives a 1200 x 900 pixel window, limited to the usable screen area."""
+    want_w, want_h = 1200, 900
+    scale = 1.0
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            scale = ctypes.windll.user32.GetDpiForSystem() / 96.0
+            rect = wintypes.RECT()
+            ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(rect), 0)   # SPI_GETWORKAREA
+            want_w = min(want_w, rect.right - rect.left)
+            want_h = min(want_h, rect.bottom - rect.top)
+        except Exception:
+            pass
+    return int(want_w / scale), int(want_h / scale)
 
 
 def _resource(name):
@@ -154,18 +225,9 @@ def run(host="127.0.0.1", headless=False):
     url = f"http://127.0.0.1:{port}/"
     try:
         import webview
-        win = settings.load()["window"]
-        w = webview.create_window("PoniaMDM", url, width=int(win.get("width", 1100)),
-                                  height=int(win.get("height", 700)), min_size=(900, 600),
-                                  js_api=Api())
-
-        def on_closing():
-            try:
-                settings.save({"window": {"width": w.width, "height": w.height}})
-            except Exception:
-                pass
-
-        w.events.closing += on_closing
+        width, height = _window_size()           # the default size is also the minimum size
+        w = webview.create_window("PoniaMDM", url, width=width, height=height,
+                                  min_size=(width, height), js_api=Api())
         ico = _resource("ponia.ico")
         webview.start(menu=_menu(w), icon=ico if os.path.isfile(ico) else None)
     except Exception:

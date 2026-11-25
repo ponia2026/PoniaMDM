@@ -11,11 +11,10 @@ import os
 import sys
 
 NAME = "PoniaMDM.settings.json"
-# theme / lang / window / tab follow the user automatically. `slots` holds, per source
+# theme / lang / tab follow the user automatically. `slots` holds, per source
 # (pegasus / emuelec / folder), the latest data folder and options; it is also what
 # File > Save file / Open file exchange.
-DEFAULTS = {"theme": "system", "lang": "", "tab": "pegasus", "slots": {},      # lang "" = follow the OS
-            "window": {"width": 1100, "height": 700}}
+DEFAULTS = {"theme": "system", "lang": "", "tab": "pegasus", "slots": {}}      # lang "" = follow the OS
 
 
 def _dir():

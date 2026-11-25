@@ -56,7 +56,7 @@ export default {
   'conf.none': '無',
   'col.file': '檔案',
   'col.platform': '機種',
-  'col.hack': '改版',
+  'col.hack': '修改版',
   'col.reason': '依據',
 
   'about.title': '關於 PoniaMDM',
