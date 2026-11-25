@@ -26,7 +26,7 @@ python3 -m ponia_mdm convert pegasus <roms folder>   # command line: pegasus | e
 ```
 
 ## Windows portable build
-Unzip `PoniaMDM-portable.zip` anywhere and run `PoniaMDM.exe`: no installer, settings are saved next to the exe
+Unzip `PoniaMDM-portable.zip` anywhere and run `PoniaMDM.exe`: no installer, settings are saved in the `_internal` folder next to the exe
 (Windows 10/11; uses the built-in WebView2 runtime and falls back to the default browser).
 
 Build locally: `powershell -ExecutionPolicy Bypass -File packaging\build_exe.ps1` produces `dist\PoniaMDM-portable.zip`.

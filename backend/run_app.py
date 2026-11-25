@@ -3,7 +3,7 @@
 """PyInstaller entry point.
 
 The windowed exe has no console, so a startup failure would be invisible. Any uncaught error
-is written to PoniaMDM.error.log (next to the exe, or in the temp folder) and shown in a dialog.
+is written to PoniaMDM.error.log (in the program's data folder, or the temp folder) and shown in a dialog.
 """
 import os
 import sys
@@ -12,7 +12,10 @@ import traceback
 
 
 def _report(text):
-    base = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.getcwd()
+    if getattr(sys, "frozen", False):
+        base = getattr(sys, "_MEIPASS", None) or os.path.join(os.path.dirname(sys.executable), "_internal")
+    else:
+        base = os.getcwd()
     path = os.path.join(base, "PoniaMDM.error.log")
     try:
         with open(path, "w", encoding="utf-8") as f:

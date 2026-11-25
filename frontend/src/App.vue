@@ -145,7 +145,7 @@ const statusLines = computed(() => {
   else if (x && x.kind === 'ok') {
     out.push(t('st.summary', x.data.stats))
     if (x.data.stats.skipped) out.push(t('st.skipped', { n: x.data.stats.skipped }))
-  } else out.push(st.value.state === 'unset' ? t('act.pick_first') : t('st.idle_text'))
+  } else out.push(t(st.value.state === 'unset' ? 'act.pick_first' : st.value.state === 'done' ? 'st.done_text' : 'st.idle_text'))
   return out
 })
 const noteInfo = computed(() => (r.value && r.value.kind === 'ok') ? noteLines(r.value.data.notes) : { lines: [], grouped: false })
@@ -220,9 +220,11 @@ onMounted(async () => {
 
       <section class="card">
         <h2><svg class="hic" viewBox="0 0 24 24" aria-hidden="true" v-html="ICONS.settings"></svg>{{ t('card.settings') }}</h2>
-        <div class="row" v-if="isZh || tab === 'folder'">
-          <label v-if="isZh"><input type="checkbox" v-model="slot.trad" /> {{ t('opt.trad') }}</label>
-          <label v-if="tab === 'folder'" :title="t('opt.engine_tip')">{{ t('opt.engine') }}
+        <div class="row" v-if="isZh">
+          <label><input type="checkbox" v-model="slot.trad" /> {{ t('opt.trad') }}</label>
+        </div>
+        <div class="row" v-if="tab === 'folder'">
+          <label :title="t('opt.engine_tip')">{{ t('opt.engine') }}
             <select v-model="slot.engine"><option>MAME</option><option>FBNeo</option></select>
           </label>
         </div>
@@ -234,7 +236,6 @@ onMounted(async () => {
             <button class="primary" :disabled="busy" @click="convert">{{ t('act.redo') }}</button>
             <button class="danger" :disabled="busy" @click="remove">{{ t('act.delete') }}</button>
           </template>
-          <span v-if="st.state === 'unset'" class="hint">{{ t('act.pick_first') }}</span>
         </div>
       </section>
 
@@ -330,14 +331,15 @@ button:hover:not(:disabled) { background:var(--sel) }
 button.primary { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600 }
 button.primary:hover:not(:disabled) { filter:brightness(1.1); background:var(--acc) }
 button.danger { color:var(--err); border-color:var(--err) }
-.hint { color:var(--mut); margin:4px 0 0; font-size:12px }
-.line { margin:4px 0 }
+.hint { margin:4px 0 0; color:var(--mut); font-size:12px }
+.line { margin:4px 0; color:var(--mut); font-size:12px }
 .pill { display:inline-flex; align-items:center; padding:1px 10px; border-radius:12px; font-size:12px; border:1px solid var(--line); color:var(--mut) }
 .pill.ok { color:var(--ok); border-color:var(--ok) } .pill.off { color:var(--off); border-color:var(--off) }
 .pill.err { color:var(--err); border-color:var(--err) } .pill.busy { color:var(--acc); border-color:var(--acc) }
 .box { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 10px; max-height:180px; overflow:auto; font-size:12px }
 .box.tall { max-height:320px; padding:0 }
-.note { color:#c0560f; margin:2px 0 } .why { color:var(--mut); font-size:12px }
+.note { color:#c0560f; margin:2px 0; font-size:12px }
+.why { color:var(--mut); font-size:12px }
 table { border-collapse:collapse; width:100% }
 th { position:sticky; top:0; background:var(--card); text-align:left; border-bottom:1px solid var(--line); padding:4px 8px; z-index:1; font-weight:600 }
 td { padding:2px 8px; border-bottom:1px solid var(--line); vertical-align:middle }

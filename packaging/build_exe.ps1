@@ -32,8 +32,8 @@ try {
     Set-Content $info $original -NoNewline -Encoding utf8
 }
 
-# the license texts travel with the program
-Copy-Item LICENSE.md, NOTICE.md "dist\PoniaMDM" -Force
+# the license texts travel with the program; the exe folder itself holds only the exe and _internal
+Copy-Item LICENSE.md, NOTICE.md "dist\PoniaMDM\_internal" -Force
 # antivirus software may hold a freshly written dll for a moment, so retry the zip a few times
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = Join-Path $root "dist\PoniaMDM-portable.zip"

@@ -2,8 +2,9 @@
 # Copyright (C) 2026 Equuleus Works
 """User settings as one small JSON file.
 
-Portable first: lives next to the exe (PoniaMDM.settings.json) when that folder is
-writable, otherwise in %APPDATA%\\PoniaMDM. Delete the file to reset everything.
+Portable first: lives in the program's own data folder (_internal next to the exe, which keeps
+the exe folder tidy) when that folder is writable, otherwise in %APPDATA%\\PoniaMDM.
+Delete the file to reset everything.
 """
 import json
 import os
@@ -18,8 +19,10 @@ DEFAULTS = {"theme": "system", "lang": "", "tab": "pegasus", "slots": {},      #
 
 
 def _dir():
-    base = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else \
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    if getattr(sys, "frozen", False):
+        base = getattr(sys, "_MEIPASS", None) or os.path.join(os.path.dirname(sys.executable), "_internal")
+    else:
+        base = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     try:
         probe = os.path.join(base, ".w")
         with open(probe, "w"):
@@ -30,6 +33,11 @@ def _dir():
         d = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "PoniaMDM")
         os.makedirs(d, exist_ok=True)
         return d
+
+
+def folder():
+    """Folder holding the settings file; also the default folder for File > Save file."""
+    return _dir()
 
 
 def path():

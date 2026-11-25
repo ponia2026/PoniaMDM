@@ -54,7 +54,7 @@ def _first(res):
 def save_file(window):
     """File > Save file: write the per-source slots (latest folder and options each) to a file."""
     import webview
-    p = _first(window.create_file_dialog(webview.SAVE_DIALOG, save_filename="PoniaMDM.slots.json",
+    p = _first(window.create_file_dialog(webview.SAVE_DIALOG, directory=settings.folder(), save_filename="PoniaMDM.slots.json",
                                          file_types=FILE_TYPES))
     if not p:
         return
@@ -67,7 +67,7 @@ def save_file(window):
 def open_file(window):
     """File > Open file: replace the slots with the ones stored in a file."""
     import webview
-    p = _first(window.create_file_dialog(webview.OPEN_DIALOG, file_types=FILE_TYPES))
+    p = _first(window.create_file_dialog(webview.OPEN_DIALOG, directory=settings.folder(), file_types=FILE_TYPES))
     if not p:
         return
     try:
