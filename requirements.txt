@@ -2,5 +2,7 @@ fastapi
 uvicorn
 pywebview
 pydantic
+opencc-python-reimplemented
+py7zr
 pyinstaller
 pytest
