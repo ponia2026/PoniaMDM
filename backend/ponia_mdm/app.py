@@ -50,7 +50,7 @@ def _free_port(preferred=8765):
 LANGUAGES = [("en", "English"), ("zh-CN", "简体中文"), ("zh-TW", "繁體中文"), ("es", "Español"),
              ("pt", "Português"), ("ru", "Русский"), ("ja", "日本語"), ("fr", "Français"),
              ("de", "Deutsch")]
-# Native menu text. Only zh-TW so far; other languages fall back to it until translated.
+# Native menu text; languages without an entry fall back to zh-TW.
 # (A native menu cannot be rebuilt while running, so a language change shows in the menu on next start.)
 MENU_TEXT = {"zh-TW": {
     "file": "檔案(F)", "save_defaults": "保存為預設值", "load_defaults": "讀取預設值", "exit": "離開(X)",

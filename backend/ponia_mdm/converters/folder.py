@@ -14,7 +14,7 @@ def entry_from_item(it):
                  title=detect.title_from(it.name), file=it.name, src=it.path,
                  extra_src=[os.path.join(os.path.dirname(it.path), c) for c in it.companions],
                  bios=it.is_bios, archive=arch, conf=it.conf, reason=it.reason,
-                 notes=list(it.notes))
+                 notes=list(it.notes), base_dir=os.path.dirname(it.path))
 
 
 def review_lines(items, skipped):

@@ -1,6 +1,6 @@
 # PoniaGDB (Ponia Game Database) - plan
 
-Status: planned, not implemented. Decided 2026-11-25.
+Status: planned, not implemented.
 
 ## What it is
 A versioned, read-only SQLite data pack, published as a GitHub Release asset. PoniaMDM downloads it and

@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from . import inplace, platforms as P, settings
 from .converters import CONVERTERS
-from .writer import write_library
+from .writer import write_inplace, write_library
 
 app = FastAPI(title="PoniaMDM")
 S = {"rows": [], "review": [], "source": None, "src": None}
@@ -33,7 +33,8 @@ class UpdateReq(BaseModel):
 
 
 class ExportReq(BaseModel):
-    out: str
+    out: str = ""
+    mode: str = "new"                 # new: write a new folder; inplace: metadata next to the ROMs
     roms: str = "none"
     zh: str = "keep"
 
@@ -114,6 +115,17 @@ def pegasus_restore(req: PegasusReq):
     return {"restored": n}
 
 
+class RootReq(BaseModel):
+    root: str
+
+
+@app.post("/api/remove-ponia")
+def remove_ponia(req: RootReq):
+    if not os.path.isdir(req.root):
+        raise HTTPException(400, f"err.folder_missing|{req.root}")
+    return {"removed": inplace.remove_generated(req.root)}
+
+
 @app.get("/api/sources")
 def sources():
     order = ["pegasus", "emuelec", "folder"]
@@ -172,7 +184,12 @@ def export(req: ExportReq):
     es = [r["e"] for r in S["rows"] if r["include"]]
     if not es:
         raise HTTPException(400, "err.nothing_to_export")
-    rep = write_library(es, req.out, req.roms, req.zh == "trad")
+    if req.mode == "inplace":
+        rep = write_inplace(es, req.zh == "trad")
+    else:
+        if not req.out.strip():
+            raise HTTPException(400, "err.out_required")
+        rep = write_library(es, req.out, req.roms, req.zh == "trad")
     return rep
 
 

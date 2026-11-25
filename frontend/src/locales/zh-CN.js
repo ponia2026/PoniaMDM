@@ -1,2 +1,2 @@
-// Translation pending: wording is still changing. Missing keys fall back to zh-TW.
+// Overrides for this language. Keys not listed fall back to zh-TW.
 export default {}

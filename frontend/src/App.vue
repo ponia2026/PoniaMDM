@@ -28,8 +28,17 @@ const report = ref(null)
 const showReview = ref(false)
 const theme = ref('system')
 const loaded = ref(false)
+const outMode = ref('inplace')     // inplace: metadata next to the ROMs; new: write a new folder
 const trad = ref(false)         // "output as Traditional Chinese"; only offered for zh-CN / zh-TW UI
 const isZh = computed(() => lang.value === 'zh-CN' || lang.value === 'zh-TW')
+const introText = computed(() => t(source.value === 'emuelec'
+  ? (outMode.value === 'inplace' ? 'emu.intro_inplace' : 'emu.intro')
+  : (outMode.value === 'inplace' ? 'folder.intro_inplace' : 'folder.intro')))
+async function removeInplace() {
+  busy.value = true; msg.value = ''
+  try { const d = await api('/api/remove-ponia', { root: path.value }); msg.value = t('status.removed', { n: d.removed }) }
+  catch (e) { msg.value = errText(e) } finally { busy.value = false }
+}
 const wantTrad = () => trad.value && isZh.value
 
 // default backup folder = "<ROM folder>_MDM", until the user types their own
@@ -107,7 +116,7 @@ function setTheme(v) { theme.value = v; document.documentElement.dataset.theme =
 function changeLang(code) { setLang(code); api('/api/settings', { lang: lang.value }).catch(() => {}) }
 watch(theme, () => { if (loaded.value) api('/api/settings', { theme: theme.value }).catch(() => {}) })
 
-const formState = () => ({ source: source.value, peg: peg.value, folder_path: path.value, engine: engine.value, export: exp.value, trad: trad.value })
+const formState = () => ({ source: source.value, peg: peg.value, folder_path: path.value, engine: engine.value, export: exp.value, trad: trad.value, out_mode: outMode.value })
 function applyForm(d) {
   d = d || {}
   source.value = d.source || 'pegasus'
@@ -116,6 +125,7 @@ function applyForm(d) {
   engine.value = d.engine || 'MAME'
   exp.value = { out: '', roms: 'none', ...(d.export || {}) }
   trad.value = !!d.trad
+  outMode.value = d.out_mode || 'inplace'
 }
 async function saveDefaults() {
   try { await api('/api/settings', { defaults: formState() }); msg.value = t('status.defaults_saved') }
@@ -197,7 +207,8 @@ const selectAllFiltered = () => { selected.value = new Set(filtered.value.map(r 
 const bulk = async patch => { await update([...selected.value], patch); selected.value = new Set() }
 async function doExport() {
   busy.value = true; msg.value = ''
-  try { report.value = await api('/api/export', { ...exp.value, zh: wantTrad() ? 'trad' : 'keep' }); msg.value = t('status.exported') }
+  try { report.value = await api('/api/export', { ...exp.value, mode: outMode.value, zh: wantTrad() ? 'trad' : 'keep' })
+    msg.value = outMode.value === 'inplace' ? t('status.written', { n: Object.keys(report.value.folders).length }) : t('status.exported') }
   catch (e) { msg.value = errText(e) } finally { busy.value = false }
 }
 </script>
@@ -210,17 +221,26 @@ async function doExport() {
       <select v-model="source">
         <option v-for="s in sources" :key="s.key" :value="s.key">{{ t('src.' + s.key) }}</option>
       </select>
-      <template v-if="source !== 'pegasus'">
+    </div>
+    <template v-if="source !== 'pegasus'">
+      <div class="row">
+        <label><input type="radio" value="inplace" v-model="outMode" /> {{ t('out.mode_inplace') }}</label>
+        <label><input type="radio" value="new" v-model="outMode" /> {{ t('out.mode_new') }}</label>
+      </div>
+      <p class="msg">{{ introText }}</p>
+      <div class="row">
         <input class="grow" v-model="path" :placeholder="t(source === 'emuelec' ? 'scan.path_ph_emuelec' : 'scan.path_ph_folder')" @keyup.enter="scan" />
         <button v-if="native()" @click="browse('src')">{{ t('btn.browse') }}</button>
-        <select v-model="engine" :title="t('scan.engine_tip')">
-          <option>MAME</option><option>FBNeo</option>
-        </select>
+      </div>
+      <div class="row">
+        <label v-if="source === 'folder'">{{ t('scan.engine_label') }}
+          <select v-model="engine" :title="t('scan.engine_tip')"><option>MAME</option><option>FBNeo</option></select>
+        </label>
         <label v-if="isZh"><input type="checkbox" v-model="trad" /> {{ t('opt.trad') }}</label>
         <button class="primary" :disabled="busy || !path" @click="scan">{{ t('scan.run') }}</button>
-      </template>
-    </div>
-    <p v-if="source !== 'pegasus'" class="msg">{{ t(source === 'emuelec' ? 'emu.intro' : 'folder.intro') }}</p>
+        <button v-if="outMode === 'inplace'" :disabled="busy || !path" @click="removeInplace">{{ t('out.undo') }}</button>
+      </div>
+    </template>
 
     <template v-if="source === 'pegasus'">
       <div class="row">
@@ -318,7 +338,10 @@ async function doExport() {
 
     <section class="card">
       <h2>{{ t('sec.export') }}</h2>
-      <div class="row">
+      <div class="row" v-if="outMode === 'inplace'">
+        <button class="primary" :disabled="busy" @click="doExport">{{ t('out.write') }}</button>
+      </div>
+      <div class="row" v-else>
         <input class="grow" v-model="exp.out" :placeholder="t('exp.out_ph')" />
         <button v-if="native()" @click="browse('out')">{{ t('btn.browse') }}</button>
         <select v-model="exp.roms">
@@ -366,6 +389,8 @@ input[type=text], input:not([type]), textarea, pre, .file, .why { user-select:te
 main { flex:1; overflow:auto; padding:10px 12px 4px }
 .card { background:var(--card); border:1px solid var(--line); border-radius:6px; margin:0 0 10px; padding:10px 12px }
 h2 { font-size:13px; font-weight:600; margin:0 0 6px } h2 small { color:var(--mut); font-weight:400 }
+label { display:inline-flex; align-items:center; gap:6px }
+input[type=radio], input[type=checkbox] { margin:0; flex:none }
 .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 }
 .grow { flex:1; min-width:200px }
 input, select, button { font:inherit; color:var(--fg); background:var(--card); border:1px solid var(--line); border-radius:4px; height:28px; padding:2px 8px }

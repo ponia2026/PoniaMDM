@@ -98,7 +98,7 @@ class EmuelecConverter(Converter):
                                 title=_text(g, "name") or detect.title_from(os.path.basename(rel)),
                                 file=rel.replace(os.sep, "/"), src=full, media=_media(sysdir, g),
                                 archive=detect.ext_of(rel) in P.ARCHIVE_EXT,
-                                conf="high", reason="emuelec_list")
+                                conf="high", reason="emuelec_list", base_dir=sysdir)
                     pairs = {
                         "developer": _text(g, "developer"), "publisher": _text(g, "publisher"),
                         "genre": _text(g, "genre"), "players": _players(_text(g, "players")),

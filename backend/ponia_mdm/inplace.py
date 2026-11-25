@@ -163,7 +163,7 @@ def remove_generated(root):
     n = 0
     for cur, _dirs, files in os.walk(root):
         touched = False
-        if DST_NAME in files and (SRC_NAME in files or SRC_NAME + ".bak" in files):
+        if DST_NAME in files:
             p = os.path.join(cur, DST_NAME)
             with open(p, encoding="utf-8-sig") as f:
                 first = f.readline().strip()

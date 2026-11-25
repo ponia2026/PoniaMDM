@@ -26,6 +26,7 @@ class Entry:
     conf: str = "high"              # how sure the detection is: high / medium / low / none
     reason: str = ""                # evidence for the platform
     notes: list = field(default_factory=list)
+    base_dir: str | None = None     # folder that will hold metadata.ponia.txt in in-place mode
 
 
 ORDER = ["developer", "publisher", "genre", "players", "release", "rating", "description"]
@@ -116,3 +117,62 @@ def undo_moves(out):
             shutil.move(dst, src)
             n += 1
     return n
+
+
+def write_inplace(entries, trad=False):
+    """Write metadata.ponia.txt next to the ROMs, without moving or copying anything.
+
+    One file per folder. Each platform in that folder gets its own collection that lists its files
+    explicitly (`files:`), every game carries `x-system`, and images are referenced where they are
+    (`assets.*` paths relative to the metadata file). Files we did not write are never overwritten.
+    """
+    by_dir, skipped_unsorted = {}, 0
+    for e in entries:
+        if e.bios or not e.base_dir:
+            continue
+        if e.platform == P.UNSORTED:
+            skipped_unsorted += 1
+            continue
+        by_dir.setdefault(e.base_dir, []).append(e)
+    report = {"warnings": [], "folders": {}}
+    for d, es in sorted(by_dir.items()):
+        target = os.path.join(d, "metadata.ponia.txt")
+        if os.path.exists(target):
+            with open(target, encoding="utf-8-sig") as f:
+                if f.readline().strip() != ponia_rules.HEADER:
+                    report["warnings"].append({"kind": "EXISTING", "path": target})
+                    continue
+        groups = {}
+        for e in es:
+            groups.setdefault((e.platform, e.hack), []).append(e)
+        sections, n = [], 0
+        for (plat, hack), ges in sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][1])):
+            head = [(k, v) for k, v in P.collection_pairs(plat, hack) if k not in ("extensions", "shortname")]
+            head.append(("files", "\n" + "\n".join(sorted({g.file for g in ges}))))
+            sections.append(("collection", head))
+            seen = set()
+            for e in sorted(ges, key=lambda x: x.title.lower()):
+                if e.file in seen:
+                    report["warnings"].append({"kind": "DUPLICATE", "folder": d, "file": e.file})
+                    continue
+                seen.add(e.file)
+                pairs = [("game", e.title), ("file", e.file)]
+                have = dict(e.pairs)
+                pairs += [(k, have[k]) for k in ORDER if have.get(k)]
+                if plat in P.PLATFORMS:
+                    pairs.append(("x-system", P.PLATFORMS[plat].get("merged") or plat.lower()))
+                for kind, key in (("boxFront", "box_front"), ("screenshot", "screenshot"),
+                                  ("logo", "logo"), ("video", "video")):
+                    s = e.media.get(kind)
+                    if s and os.path.isfile(s):
+                        pairs.append((f"assets.{key}", os.path.relpath(s, d).replace(os.sep, "/")))
+                sections.append(("game", pairs))
+                n += 1
+        if trad:
+            sections = [(k, zh.convert_pairs(p)) for k, p in sections]
+        with open(target, "w", encoding="utf-8", newline="") as f:
+            f.write(metafile.dump(sections, header=ponia_rules.HEADER))
+        report["folders"][d] = n
+    if skipped_unsorted:
+        report["warnings"].append({"kind": "UNSORTED_SKIPPED", "n": skipped_unsorted})
+    return report

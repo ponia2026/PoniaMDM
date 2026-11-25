@@ -48,6 +48,10 @@ def format_item(it):
         return f"BADXML     {it['path']} ({it['error']})"
     if k == "DUPLICATE":
         return f"DUPLICATE  duplicate file name in {it['folder']}: {it['file']}"
+    if k == "EXISTING":
+        return f"EXISTING   {it['path']} was not written by this tool; left untouched"
+    if k == "UNSORTED_SKIPPED":
+        return f"UNSORTED   {it['n']} files of unknown platform were not written"
     if k == "unparsed":
         return f"warn [{it['rel'] or '.'}] unparsed {it['key']}: {it['value']!r}"
     if k == "skip":
