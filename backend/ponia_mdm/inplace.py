@@ -112,3 +112,67 @@ def restore(root, backup_dir, log=print):
             os.remove(gen)
         n += 1
     return n
+
+
+# ---------------------------------------------------------------- alongside mode (default)
+def convert_alongside(root, trad=False, disable_original=False, log=None):
+    """Write metadata.ponia.txt next to each metadata.pegasus.txt; the original is not touched.
+
+    disable_original=True renames the Pegasus file to metadata.pegasus.txt.bak afterwards, so a
+    frontend that reads both names does not load every game twice.
+    """
+    log = log or (lambda it: print(review.format_item(it)))
+    root = os.path.abspath(root)
+    rels = _find(root)
+    if not rels:
+        raise MdmError("err.no_pegasus", root)
+    stats = {"folders": 0, "games": 0, "warnings": 0, "skipped": 0}
+    for rel in rels:
+        folder = os.path.join(root, rel)
+        src = os.path.join(folder, SRC_NAME)
+        target = os.path.join(folder, DST_NAME)
+        if os.path.exists(target):
+            log({"kind": "skip", "rel": rel})
+            stats["skipped"] += 1
+            if disable_original:
+                os.replace(src, src + ".bak")
+            continue
+        with open(src, encoding="utf-8-sig", newline="") as f:
+            sections = metafile.parse(f.read())
+
+        def warn(kind, key, value, rel=rel):
+            stats["warnings"] += 1
+            log({"kind": kind, "rel": rel, "key": key, "value": value})
+
+        conv = ponia_rules.convert_sections(sections, warn)
+        if trad:
+            conv = [(k, zh.convert_pairs(p)) for k, p in conv]
+        with open(target, "w", encoding="utf-8", newline="") as f:
+            f.write(metafile.dump(conv, header=ponia_rules.HEADER))
+        stats["folders"] += 1
+        stats["games"] += sum(1 for k, _ in conv if k == "game")
+        if disable_original:
+            os.replace(src, src + ".bak")
+    return stats
+
+
+def remove_generated(root):
+    """Undo convert_alongside: delete the metadata.ponia.txt files this tool wrote (they start with
+    our header line) and give any .bak Pegasus file its name back. Returns folders touched."""
+    root = os.path.abspath(root)
+    n = 0
+    for cur, _dirs, files in os.walk(root):
+        touched = False
+        if DST_NAME in files and (SRC_NAME in files or SRC_NAME + ".bak" in files):
+            p = os.path.join(cur, DST_NAME)
+            with open(p, encoding="utf-8-sig") as f:
+                first = f.readline().strip()
+            if first == ponia_rules.HEADER:
+                os.remove(p)
+                touched = True
+        bak = os.path.join(cur, SRC_NAME + ".bak")
+        if SRC_NAME + ".bak" in files and SRC_NAME not in files:
+            os.replace(bak, os.path.join(cur, SRC_NAME))
+            touched = True
+        n += touched
+    return n

@@ -48,8 +48,10 @@ def _row(i, r):
 
 class PegasusReq(BaseModel):
     root: str
-    backup: str
-    keep_pegasus: bool = False
+    backup: str = ""
+    mode: str = "alongside"          # alongside (default): add metadata.ponia.txt, keep the original
+    keep_pegasus: bool = False       # replace mode only
+    disable_original: bool = False   # alongside mode: rename the Pegasus file to .bak
     trad: bool = False
 
 
@@ -86,11 +88,14 @@ def about():
 def pegasus_convert(req: PegasusReq):
     if not os.path.isdir(req.root):
         raise HTTPException(400, f"err.folder_missing|{req.root}")
-    if not req.backup.strip():
+    if req.mode == "replace" and not req.backup.strip():
         raise HTTPException(400, "err.backup_required")
     log = []
     try:
-        stats = inplace.convert(req.root, req.backup, req.keep_pegasus, log=log.append, trad=req.trad)
+        if req.mode == "replace":
+            stats = inplace.convert(req.root, req.backup, req.keep_pegasus, log=log.append, trad=req.trad)
+        else:
+            stats = inplace.convert_alongside(req.root, req.trad, req.disable_original, log=log.append)
     except inplace.MdmError as e:
         raise HTTPException(400, f"{e.code}|{e.arg}")
     return {"stats": stats, "log": log}
@@ -99,6 +104,8 @@ def pegasus_convert(req: PegasusReq):
 @app.post("/api/pegasus/restore")
 def pegasus_restore(req: PegasusReq):
     try:
+        if req.mode != "replace":
+            return {"restored": inplace.remove_generated(req.root)}
         n = inplace.restore(req.root, req.backup)
     except inplace.MdmError as e:
         raise HTTPException(400, f"{e.code}|{e.arg}")

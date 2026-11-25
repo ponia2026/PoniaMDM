@@ -5,7 +5,8 @@ import { t, lang, setLang, detectLang } from './i18n.js'
 const sources = ref([])
 const platforms = ref([])
 const source = ref('pegasus')
-const peg = ref({ root: '', backup: '', keep_pegasus: false })
+const peg = ref({ root: '', backup: '', mode: 'alongside', keep_pegasus: false, disable_original: false })
+const pegReady = computed(() => !!peg.value.root && (peg.value.mode !== 'replace' || !!peg.value.backup))
 const pegOut = ref(null)
 const about = ref(null)
 const showAbout = ref(false)
@@ -95,7 +96,9 @@ async function pegRun(kind) {
   try {
     const d = await api('/api/pegasus/' + kind, { ...peg.value, trad: wantTrad() })
     pegOut.value = d
-    msg.value = kind === 'convert' ? t('status.converted') : t('status.restored', { n: d.restored })
+    const alongside = peg.value.mode !== 'replace'
+    msg.value = kind === 'convert' ? t(alongside ? 'status.converted_alongside' : 'status.converted')
+      : t(alongside ? 'status.undone' : 'status.restored', { n: d.restored })
   } catch (e) { msg.value = errText(e) } finally { busy.value = false }
 }
 
@@ -108,7 +111,7 @@ const formState = () => ({ source: source.value, peg: peg.value, folder_path: pa
 function applyForm(d) {
   d = d || {}
   source.value = d.source || 'pegasus'
-  peg.value = { root: '', backup: '', keep_pegasus: false, ...(d.peg || {}) }
+  peg.value = { root: '', backup: '', mode: 'alongside', keep_pegasus: false, disable_original: false, ...(d.peg || {}) }
   path.value = d.folder_path || ''
   engine.value = d.engine || 'MAME'
   exp.value = { out: '', roms: 'none', ...(d.export || {}) }
@@ -208,30 +211,37 @@ async function doExport() {
         <option v-for="s in sources" :key="s.key" :value="s.key">{{ t('src.' + s.key) }}</option>
       </select>
       <template v-if="source !== 'pegasus'">
-        <input class="grow" v-model="path" :placeholder="t('scan.path_ph')" @keyup.enter="scan" />
+        <input class="grow" v-model="path" :placeholder="t(source === 'emuelec' ? 'scan.path_ph_emuelec' : 'scan.path_ph_folder')" @keyup.enter="scan" />
         <button v-if="native()" @click="browse('src')">{{ t('btn.browse') }}</button>
         <select v-model="engine" :title="t('scan.engine_tip')">
           <option>MAME</option><option>FBNeo</option>
         </select>
+        <label v-if="isZh"><input type="checkbox" v-model="trad" /> {{ t('opt.trad') }}</label>
         <button class="primary" :disabled="busy || !path" @click="scan">{{ t('scan.run') }}</button>
       </template>
     </div>
+    <p v-if="source !== 'pegasus'" class="msg">{{ t(source === 'emuelec' ? 'emu.intro' : 'folder.intro') }}</p>
 
     <template v-if="source === 'pegasus'">
-      <p class="msg">{{ t('peg.intro') }}</p>
+      <div class="row">
+        <label><input type="radio" value="alongside" v-model="peg.mode" /> {{ t('peg.mode_alongside') }}</label>
+        <label><input type="radio" value="replace" v-model="peg.mode" /> {{ t('peg.mode_replace') }}</label>
+      </div>
+      <p class="msg">{{ t(peg.mode === 'replace' ? 'peg.intro_replace' : 'peg.intro') }}</p>
       <div class="row">
         <input class="grow" v-model="peg.root" :placeholder="t('peg.root_ph')" />
         <button v-if="native()" @click="browse('peg')">{{ t('btn.browse') }}</button>
       </div>
-      <div class="row">
+      <div class="row" v-if="peg.mode === 'replace'">
         <input class="grow" v-model="peg.backup" :placeholder="t('peg.backup_ph')" />
         <button v-if="native()" @click="browse('bak')">{{ t('btn.browse') }}</button>
       </div>
       <div class="row">
-        <label><input type="checkbox" v-model="peg.keep_pegasus" /> {{ t('peg.keep') }}</label>
+        <label v-if="peg.mode === 'replace'"><input type="checkbox" v-model="peg.keep_pegasus" /> {{ t('peg.keep') }}</label>
+        <label v-else><input type="checkbox" v-model="peg.disable_original" /> {{ t('peg.disable') }}</label>
         <label v-if="isZh"><input type="checkbox" v-model="trad" /> {{ t('opt.trad') }}</label>
-        <button class="primary" :disabled="busy || !peg.root || !peg.backup" @click="pegRun('convert')">{{ t('peg.convert') }}</button>
-        <button :disabled="busy || !peg.root || !peg.backup" @click="pegRun('restore')">{{ t('peg.restore') }}</button>
+        <button class="primary" :disabled="busy || !pegReady" @click="pegRun('convert')">{{ t(peg.mode === 'replace' ? 'peg.convert' : 'peg.convert_alongside') }}</button>
+        <button :disabled="busy || !pegReady" @click="pegRun('restore')">{{ t(peg.mode === 'replace' ? 'peg.restore' : 'peg.undo') }}</button>
       </div>
       <div v-if="pegOut && pegOut.stats" class="report">
         {{ t('peg.summary', pegOut.stats) }}
@@ -317,7 +327,6 @@ async function doExport() {
           <option value="link">{{ t('exp.roms_link') }}</option>
           <option value="move">{{ t('exp.roms_move') }}</option>
         </select>
-        <label v-if="isZh"><input type="checkbox" v-model="trad" /> {{ t('opt.trad') }}</label>
         <button class="primary" :disabled="busy || !exp.out" @click="doExport">{{ t('exp.run') }}</button>
       </div>
       <div v-if="report" class="report">

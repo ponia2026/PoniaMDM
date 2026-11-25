@@ -19,6 +19,14 @@ def main():
     c.add_argument("backup")
     c.add_argument("--keep-pegasus", action="store_true")
 
+    al = sub.add_parser("add-ponia", help="write metadata.ponia.txt next to each Pegasus file (original untouched)")
+    al.add_argument("root")
+    al.add_argument("--trad", action="store_true", help="Simplified -> Traditional")
+    al.add_argument("--disable-original", action="store_true", help="rename the Pegasus file to .bak")
+
+    rm = sub.add_parser("remove-ponia", help="undo add-ponia")
+    rm.add_argument("root")
+
     r = sub.add_parser("restore", help="put the backed-up Pegasus metadata back")
     r.add_argument("root")
     r.add_argument("backup")
@@ -46,6 +54,10 @@ def main():
     a = ap.parse_args()
     if a.cmd == "convert":
         print(inplace.convert(a.root, a.backup, a.keep_pegasus))
+    elif a.cmd == "add-ponia":
+        print(inplace.convert_alongside(a.root, a.trad, a.disable_original))
+    elif a.cmd == "remove-ponia":
+        print("folders touched:", inplace.remove_generated(a.root))
     elif a.cmd == "restore":
         print("restored folders:", inplace.restore(a.root, a.backup))
     elif a.cmd == "undo-move":
