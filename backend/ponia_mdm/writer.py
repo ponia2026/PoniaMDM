@@ -21,6 +21,9 @@ class Entry:
     media: dict = field(default_factory=dict)       # kind -> source path
     bios: bool = False              # goes to ignore-files, not a game
     archive: bool = False
+    conf: str = "high"              # how sure the detection is: high / medium / low / none
+    reason: str = ""                # evidence for the platform
+    notes: list = field(default_factory=list)
 
 
 ORDER = ["developer", "publisher", "genre", "players", "release", "rating", "description"]

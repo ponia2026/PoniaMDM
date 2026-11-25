@@ -11,7 +11,8 @@ def entry_from_item(it):
     return Entry(platform=it.platform or P.UNSORTED, hack=it.hack,
                  title=detect.title_from(it.name), file=it.name, src=it.path,
                  extra_src=[os.path.join(os.path.dirname(it.path), c) for c in it.companions],
-                 bios=it.is_bios, archive=arch)
+                 bios=it.is_bios, archive=arch, conf=it.conf, reason=it.reason,
+                 notes=list(it.notes))
 
 
 def review_lines(items, skipped):
