@@ -12,7 +12,7 @@ HEADER = "# Ponia metadata (Pegasus-compatible superset), one file per platform 
 
 _DATE8 = re.compile(r"^(\d{4})(\d{2})(\d{2})$")
 _DATE = re.compile(r"^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$")
-_DATE_YY = re.compile(r"^(d{2})-(d{1,2})-(d{1,2})$")      # 96-5-24 (two-digit year)
+_DATE_YY = re.compile(r"^(\d{2})-(\d{1,2})-(\d{1,2})$")      # 96-5-24 (two-digit year)
 _PCT = re.compile(r"^\d{1,3}%$")
 _FLOAT = re.compile(r"^(?:0?\.\d+|1(?:\.0+)?|0)$")
 _INT = re.compile(r"^\d{1,3}$")
