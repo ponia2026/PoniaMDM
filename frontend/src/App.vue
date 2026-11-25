@@ -49,10 +49,35 @@ const api = async (url, body) => {
   return r.json()
 }
 
+const theme = ref('system')
+const loaded = ref(false)
+function setTheme(t) { theme.value = t; document.documentElement.dataset.theme = t }
+let saveTimer = null
+watch([theme, source, peg, path, engine, exp], () => {
+  if (!loaded.value) return
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => api('/api/settings', {
+    theme: theme.value, source: source.value, peg: peg.value, folder_path: path.value,
+    engine: engine.value, export: exp.value }).catch(() => {}), 400)
+}, { deep: true })
+
 onMounted(async () => {
+  window.setTheme = setTheme          // called from the native menu
+  window.openAbout = openAbout
   sources.value = await api('/api/sources')
   platforms.value = await api('/api/platforms')
+  try {
+    const s = await api('/api/settings')
+    setTheme(s.theme || 'system')
+    source.value = s.source || 'pegasus'
+    peg.value = { root: '', backup: '', keep_pegasus: false, ...(s.peg || {}) }
+    path.value = s.folder_path || ''
+    engine.value = s.engine || 'MAME'
+    exp.value = { out: '', roms: 'none', zh: 'keep', ...(s.export || {}) }
+  } catch (e) { /* first run */ }
+  loaded.value = true
 })
+const statusText = computed(() => msg.value || (busy.value ? '處理中…' : '就緒'))
 
 const needsCheck = r => r.conf !== 'high' || r.notes.length || r.platform === 'Unsorted'
 
@@ -118,12 +143,7 @@ const confLabel = { high: '高', medium: '中', low: '低', none: '無' }
 </script>
 
 <template>
-  <header>
-    <img class="logo" src="/ponia_mark.svg" alt="Ponia" />
-    <h1>PoniaMDM</h1>
-    <span class="sub">Ponia Metadata Manager</span>
-  </header>
-
+  <div class="shell"><main>
   <section class="card">
     <h2>1. 來源</h2>
     <div class="row">
@@ -160,7 +180,6 @@ const confLabel = { high: '高', medium: '中', low: '低', none: '無' }
         <div v-for="(l, i) in pegOut.log.slice(0, 200)" :key="i" class="note">{{ l }}</div>
       </div>
     </template>
-    <p v-if="msg" class="msg">{{ msg }}</p>
   </section>
 
   <template v-if="rows.length && source !== 'pegasus'">
@@ -251,10 +270,13 @@ const confLabel = { high: '高', medium: '中', low: '低', none: '無' }
     </section>
   </template>
 
-  <footer>
-    © 2026 Equuleus Works · GPL-3.0-or-later ·
-    <button class="link" @click="openAbout">關於與授權</button>
-  </footer>
+  </main>
+  <footer class="statusbar">
+    <span class="st-msg" :title="statusText">{{ statusText }}</span>
+    <span v-if="rows.length && source !== 'pegasus'">{{ rows.length }} 筆</span>
+    <span>© 2026 Equuleus Works · GPL-3.0-or-later</span>
+    <button class="link" @click="openAbout">關於</button>
+  </footer></div>
   <div v-if="showAbout" class="modal" @click.self="showAbout = false">
     <div class="dialog">
       <div class="dhead"><img class="logo" src="/ponia_mark.svg" alt="" /><b>PoniaMDM {{ about.version }}</b>
@@ -303,4 +325,27 @@ input.title { width:100%; min-width:160px; border-color:transparent; background:
 .review, .report { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; max-height:200px; overflow:auto; font-size:12px; white-space:pre-wrap }
 .pager { justify-content:center }
 @media (max-width:700px) { .card { margin:0 10px 12px } }
+/* ---- Windows-app look: system font, compact controls, fixed shell with status bar ---- */
+:root[data-theme="light"] { --bg:#f3f3f3; --card:#fff; --fg:#1b1b1b; --mut:#5f5f5f; --line:#d9d9d9; --acc:#0067c0; --warn:#fff4ce; --sel:#e5f1fb; }
+:root[data-theme="dark"] { --bg:#202020; --card:#2b2b2b; --fg:#f3f3f3; --mut:#a6a6a6; --line:#404040; --acc:#4cc2ff; --warn:#433519; --sel:#1e3a52; }
+html, body, #app { height:100%; margin:0 }
+body { font:13px/1.45 "Segoe UI Variable Text","Segoe UI","Microsoft JhengHei UI","Microsoft YaHei UI",sans-serif; overflow:hidden; user-select:none }
+input[type=text], input:not([type]), textarea, pre, .file, .why { user-select:text }
+.shell { display:flex; flex-direction:column; height:100vh }
+main { flex:1; overflow:auto; padding:10px 12px 4px }
+.card { margin:0 0 10px; padding:10px 12px; border-radius:6px }
+h2 { font-size:13px; font-weight:600; margin:0 0 6px }
+input, select, button { height:28px; padding:2px 8px; border-radius:4px; font:inherit }
+input[type=checkbox] { height:auto; width:14px; height:14px }
+input.title { height:24px }
+button { background:var(--card); border:1px solid var(--line); border-bottom-color:#b5b5b5 }
+button:hover:not(:disabled) { background:var(--sel) }
+button.primary { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600 }
+button.primary:hover:not(:disabled) { filter:brightness(1.1); background:var(--acc) }
+button.link { height:auto; border:0; background:none; padding:0 }
+button.link:hover { text-decoration:underline; background:none }
+.tablewrap { max-height:calc(100vh - 330px); min-height:160px }
+.statusbar { display:flex; gap:18px; align-items:center; height:24px; padding:0 12px; border-top:1px solid var(--line); background:var(--card); color:var(--mut); font-size:12px; flex:none }
+.st-msg { flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--fg) }
+.modal { background:rgba(0,0,0,.35) }
 </style>

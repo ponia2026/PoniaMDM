@@ -6,3 +6,4 @@ dist/
 build/
 *.db
 frontend/dist/
+PoniaMDM.settings.json

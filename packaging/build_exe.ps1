@@ -10,7 +10,7 @@ if (-not (Test-Path "frontend\dist\index.html")) {
 python -m pip install -r requirements.txt
 python -m PyInstaller --noconfirm --clean --onefile --windowed --name PoniaMDM `
     --paths backend `
-    --icon packaging\ponia.ico `
+    --icon packaging\ponia.ico --add-data "packaging\ponia.ico;." `
     --add-data "NOTICE.md;legal" --add-data "LICENSE.md;legal" `
     --add-data "frontend\dist;frontend_dist" `
     --add-data "backend\ponia_mdm\zh_overrides.json;ponia_mdm" `

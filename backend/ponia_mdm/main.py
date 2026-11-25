@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import inplace, platforms as P
+from . import inplace, platforms as P, settings
 from .converters import CONVERTERS
 from .writer import write_library
 
@@ -55,6 +55,16 @@ class PegasusReq(BaseModel):
 def _legal_dir():
     base = getattr(sys, "_MEIPASS", None)
     return os.path.join(base, "legal") if base else os.path.join(os.path.dirname(__file__), "..", "..")
+
+
+@app.get("/api/settings")
+def get_settings():
+    return settings.load()
+
+
+@app.post("/api/settings")
+def post_settings(data: dict):
+    return settings.save(data)
 
 
 @app.get("/api/about")
