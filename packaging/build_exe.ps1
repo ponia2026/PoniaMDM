@@ -34,5 +34,18 @@ try {
 
 # the license texts travel with the program
 Copy-Item LICENSE.md, NOTICE.md "dist\PoniaMDM" -Force
-Compress-Archive -Path "dist\PoniaMDM" -DestinationPath "dist\PoniaMDM-portable.zip" -Force
+# antivirus software may hold a freshly written dll for a moment, so retry the zip a few times
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = Join-Path $root "dist\PoniaMDM-portable.zip"
+for ($i = 1; $i -le 6; $i++) {
+    Remove-Item $zip -ErrorAction SilentlyContinue
+    try {
+        [System.IO.Compression.ZipFile]::CreateFromDirectory((Join-Path $root "dist\PoniaMDM"), $zip,
+            [System.IO.Compression.CompressionLevel]::Optimal, $true)
+        break
+    } catch {
+        if ($i -eq 6) { throw }
+        Start-Sleep -Seconds 5
+    }
+}
 Write-Host "Done: dist\PoniaMDM\PoniaMDM.exe and dist\PoniaMDM-portable.zip"

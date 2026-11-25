@@ -3,6 +3,15 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { t, lang, setLang, detectLang } from './i18n.js'
 
 const TABS = ['pegasus', 'emuelec', 'folder']
+// Inline outline icons (24x24 grid, stroke only) so nothing depends on an icon font.
+const ICONS = {
+  pegasus: '<path d="M6 8h12a4 4 0 0 1 4 4v1.5a3.5 3.5 0 0 1-6.2 2.2L14.5 14h-5l-1.3 1.7A3.5 3.5 0 0 1 2 13.5V12a4 4 0 0 1 4-4z"/><path d="M7 10.5v3M5.5 12h3"/><circle cx="16" cy="11" r=".7"/><circle cx="18" cy="13" r=".7"/>',
+  emuelec: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4M8 9.5l2 1.5-2 1.5M13 13h3"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  source: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
+  settings: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  status: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v.01M11 11h1.2v5.2H13"/>',
+}
 const tab = ref('pegasus')
 const slots = ref({
   pegasus: { path: '', trad: false },
@@ -192,6 +201,7 @@ onMounted(async () => {
   <div class="app">
     <nav class="tabs">
       <button v-for="k in TABS" :key="k" class="tab" :class="{ on: tab === k }" :title="t('tab.' + k)" @click="tab = k">
+        <svg class="tic" viewBox="0 0 24 24" aria-hidden="true" v-html="ICONS[k]"></svg>
         <span class="tlabel">{{ t('tab.' + k) }}</span>
         <span class="dot" :class="stat[k].state"></span>
       </button>
@@ -199,7 +209,7 @@ onMounted(async () => {
 
     <main class="pane">
       <section class="card">
-        <h2>{{ t('card.source') }}</h2>
+        <h2><svg class="hic" viewBox="0 0 24 24" aria-hidden="true" v-html="ICONS.source"></svg>{{ t('card.source') }}</h2>
         <div class="row">
           <input class="grow" v-model="slot.path" :placeholder="t('src.ph_' + tab)" />
           <button v-if="native()" @click="browse">{{ t('src.browse') }}</button>
@@ -209,7 +219,7 @@ onMounted(async () => {
       </section>
 
       <section class="card">
-        <h2>{{ t('card.settings') }}</h2>
+        <h2><svg class="hic" viewBox="0 0 24 24" aria-hidden="true" v-html="ICONS.settings"></svg>{{ t('card.settings') }}</h2>
         <div class="row" v-if="isZh || tab === 'folder'">
           <label v-if="isZh"><input type="checkbox" v-model="slot.trad" /> {{ t('opt.trad') }}</label>
           <label v-if="tab === 'folder'" :title="t('opt.engine_tip')">{{ t('opt.engine') }}
@@ -229,7 +239,7 @@ onMounted(async () => {
       </section>
 
       <section class="card grow-card">
-        <h2>{{ t('card.status') }}</h2>
+        <h2><svg class="hic" viewBox="0 0 24 24" aria-hidden="true" v-html="ICONS.status"></svg>{{ t('card.status') }}</h2>
         <div class="row"><span class="pill" :class="pill.cls">{{ pill.text }}</span></div>
         <p class="line" v-for="(l, i) in statusLines" :key="i">{{ l }}</p>
 
@@ -295,7 +305,7 @@ input[type=text], input:not([type]), textarea, pre, .file, .why, .line, .note { 
 
 .app { display:flex; height:100vh }
 .tabs { width:188px; flex:none; padding:10px 8px; border-right:1px solid var(--line); background:var(--card); display:flex; flex-direction:column; gap:4px }
-.tab { display:flex; align-items:center; gap:8px; width:100%; height:auto; min-height:44px; padding:6px 10px; text-align:left; border:0; border-radius:8px; background:none; font-size:13px; line-height:1.25 }
+.tab { display:flex; align-items:center; gap:10px; width:100%; height:auto; min-height:46px; padding:6px 10px; text-align:left; border:0; border-radius:8px; background:none; font-size:14px; line-height:1.25 }
 .tab:hover { background:var(--sel) }
 .tab.on { background:var(--sel); color:var(--acc); font-weight:600 }
 .tlabel { flex:1; min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere }
@@ -305,8 +315,11 @@ input[type=text], input:not([type]), textarea, pre, .file, .why, .line, .note { 
 .pane { flex:1; min-width:0; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:10px }
 .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px }
 .grow-card { flex:1; min-height:140px }
-h2 { font-size:12px; font-weight:600; margin:0 0 6px; color:var(--mut) }
-h3 { font-size:12px; font-weight:600; margin:10px 0 2px }
+h2 { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:700; margin:0 0 8px; padding-bottom:8px; border-bottom:1px solid var(--line); color:var(--fg) }
+.hic { width:18px; height:18px; flex:none; fill:none; stroke:var(--acc); stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round }
+.tic { width:22px; height:22px; flex:none; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; color:var(--mut) }
+.tab.on .tic { color:var(--acc) }
+h3 { font-size:13px; font-weight:700; margin:12px 0 2px }
 .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 }
 .grow { flex:1; min-width:160px }
 label { display:inline-flex; align-items:center; gap:6px }
