@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """Simplified -> Traditional (Taiwan) conversion, literal and conservative.
 
 Engine: OpenCC `s2tw` (pure-python port, dictionaries bundled). It is

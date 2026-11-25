@@ -3,7 +3,20 @@ import { ref, computed, onMounted, watch } from 'vue'
 
 const sources = ref([])
 const platforms = ref([])
-const source = ref('folder')
+const source = ref('pegasus')
+const peg = ref({ root: '', backup: '', keep_pegasus: false })
+const pegOut = ref(null)
+const about = ref(null)
+const showAbout = ref(false)
+async function openAbout() { if (!about.value) about.value = await api('/api/about'); showAbout.value = true }
+async function pegRun(kind) {
+  busy.value = true; msg.value = ''; pegOut.value = null
+  try {
+    const d = await api('/api/pegasus/' + kind, peg.value)
+    pegOut.value = d
+    msg.value = kind === 'convert' ? '轉換完成。原本的 Pegasus metadata 已備份。' : `已還原 ${d.restored} 個機種資料夾。`
+  } catch (e) { msg.value = '錯誤：' + e.message } finally { busy.value = false }
+}
 const path = ref('')
 const engine = ref('MAME')
 const rows = ref([])
@@ -24,7 +37,11 @@ const showReview = ref(false)
 const native = () => window.pywebview && window.pywebview.api
 async function browse(target) {
   const p = await window.pywebview.api.pick_folder()
-  if (p) { if (target === 'src') path.value = p; else exp.value.out = p }
+  if (!p) return
+  if (target === 'src') path.value = p
+  else if (target === 'peg') peg.value.root = p
+  else if (target === 'bak') peg.value.backup = p
+  else exp.value.out = p
 }
 const api = async (url, body) => {
   const r = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
@@ -102,6 +119,7 @@ const confLabel = { high: '高', medium: '中', low: '低', none: '無' }
 
 <template>
   <header>
+    <img class="logo" src="/ponia_mark.svg" alt="Ponia" />
     <h1>PoniaMDM</h1>
     <span class="sub">Ponia Metadata Manager</span>
   </header>
@@ -112,17 +130,40 @@ const confLabel = { high: '高', medium: '中', low: '低', none: '無' }
       <select v-model="source">
         <option v-for="s in sources" :key="s.key" :value="s.key">{{ s.label }}</option>
       </select>
-      <input class="grow" v-model="path" placeholder="資料夾路徑，例如 E:\UserROM" @keyup.enter="scan" />
-      <button v-if="native()" @click="browse('src')">瀏覽…</button>
-      <select v-model="engine" title="無法判斷的街機 romset 要歸到哪個引擎">
-        <option>MAME</option><option>FBNeo</option>
-      </select>
-      <button class="primary" :disabled="busy || !path" @click="scan">{{ busy ? '處理中…' : '掃描' }}</button>
+      <template v-if="source !== 'pegasus'">
+        <input class="grow" v-model="path" placeholder="資料夾路徑，例如 E:\UserROM" @keyup.enter="scan" />
+        <button v-if="native()" @click="browse('src')">瀏覽…</button>
+        <select v-model="engine" title="無法判斷的街機 romset 要歸到哪個引擎">
+          <option>MAME</option><option>FBNeo</option>
+        </select>
+        <button class="primary" :disabled="busy || !path" @click="scan">{{ busy ? '處理中…' : '掃描' }}</button>
+      </template>
     </div>
+
+    <template v-if="source === 'pegasus'">
+      <p class="msg">先把原本的 Pegasus（跳坑者聯盟）metadata 備份到另一個資料夾，再在原處換成 Ponia metadata；需要時可一鍵還原。圖片、影片與 ROM 都不會被動到。</p>
+      <div class="row">
+        <input class="grow" v-model="peg.root" placeholder="Roms 資料夾（內含各機種資料夾），例如 D:\Roms" />
+        <button v-if="native()" @click="browse('peg')">瀏覽…</button>
+      </div>
+      <div class="row">
+        <input class="grow" v-model="peg.backup" placeholder="備份資料夾（放原本的 metadata.pegasus.txt），例如 D:\Roms_備份" />
+        <button v-if="native()" @click="browse('bak')">瀏覽…</button>
+      </div>
+      <div class="row">
+        <label><input type="checkbox" v-model="peg.keep_pegasus" /> 轉換後保留 metadata.pegasus.txt</label>
+        <button class="primary" :disabled="busy || !peg.root || !peg.backup" @click="pegRun('convert')">備份並轉換</button>
+        <button :disabled="busy || !peg.root || !peg.backup" @click="pegRun('restore')">還原 Pegasus metadata</button>
+      </div>
+      <div v-if="pegOut && pegOut.stats" class="report">
+        轉換 {{ pegOut.stats.folders }} 個機種、{{ pegOut.stats.games }} 款遊戲；略過 {{ pegOut.stats.skipped }}；提醒 {{ pegOut.stats.warnings }} 則
+        <div v-for="(l, i) in pegOut.log.slice(0, 200)" :key="i" class="note">{{ l }}</div>
+      </div>
+    </template>
     <p v-if="msg" class="msg">{{ msg }}</p>
   </section>
 
-  <template v-if="rows.length">
+  <template v-if="rows.length && source !== 'pegasus'">
     <section class="card">
       <h2>2. 偵測結果 <small>（{{ rows.length }} 筆；{{ counts.map(([k, n]) => k + ' ' + n).join('、') }}）</small></h2>
       <div class="row">
@@ -209,9 +250,30 @@ const confLabel = { high: '高', medium: '中', low: '低', none: '無' }
       </div>
     </section>
   </template>
+
+  <footer>
+    © 2026 Equuleus Works · GPL-3.0-or-later ·
+    <button class="link" @click="openAbout">關於與授權</button>
+  </footer>
+  <div v-if="showAbout" class="modal" @click.self="showAbout = false">
+    <div class="dialog">
+      <div class="dhead"><img class="logo" src="/ponia_mark.svg" alt="" /><b>PoniaMDM {{ about.version }}</b>
+        <button @click="showAbout = false">關閉</button></div>
+      <p>Copyright © 2026 Equuleus Works。本程式為自由軟體，依 GNU GPL 第 3 版（或更新版本）授權散布，不附帶任何擔保。「Ponia」名稱與標誌為 Equuleus Works 所有，保留一切權利。Pegasus、EmuELEC 等名稱屬於各自權利人，本工具與其作者無隸屬關係。</p>
+      <pre>{{ about.notice }}</pre>
+      <details><summary>GPL-3.0 完整授權文字</summary><pre>{{ about.license }}</pre></details>
+    </div>
+  </div>
 </template>
 
 <style>
+header .logo { width:34px; height:34px }
+footer { text-align:center; color:var(--mut); font-size:12px; padding:6px 0 22px }
+.modal { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:10 }
+.dialog { background:var(--card); border:1px solid var(--line); border-radius:8px; width:min(720px, 94vw); max-height:86vh; overflow:auto; padding:14px 18px }
+.dhead { display:flex; align-items:center; gap:10px } .dhead b { flex:1 }
+.dialog pre { white-space:pre-wrap; font-size:12px; background:var(--bg); padding:8px 10px; border-radius:6px }
+.dialog .logo { width:28px; height:28px }
 :root { --bg:#f6f7f9; --card:#fff; --fg:#1d2733; --mut:#6b7785; --line:#dde2e8; --acc:#0b6ea8; --warn:#fff6e0; --sel:#e6f2fb; }
 @media (prefers-color-scheme: dark) { :root { --bg:#14181d; --card:#1d242c; --fg:#e6eaee; --mut:#93a0ad; --line:#2f3a45; --acc:#4aa8e0; --warn:#3a3118; --sel:#1f3446; } }
 * { box-sizing: border-box }

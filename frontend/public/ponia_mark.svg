@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+<circle cx="200" cy="200" r="195" fill="#3a3a3a"/><g transform="translate(0,12)"><g fill="#ff3355">
+  <path fill-rule="evenodd" d="M150 96 H250 C322 96 364 138 364 190 C364 242 322 284 250 284 H214 V330 H150 Z M214 150 V230 H246 C276 230 298 214 298 190 C298 166 276 150 246 150 Z"/>
+  <path d="M226 96 L250 38 L282 100 Z"/>
+  <path d="M60 110 H150 V150 H60 Z"/>
+  <path d="M84 176 H150 V216 H84 Z"/>
+  <path d="M108 242 H150 V282 H108 Z"/>
+</g></g>
+</svg>

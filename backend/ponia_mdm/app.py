@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """Desktop launcher: local API server + native window (WebView2 via pywebview).
 
 Falls back to the default browser when no native window is available.

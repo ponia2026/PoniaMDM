@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """Pegasus -> Ponia field rules (see Ponia.Roms/README.ponia-format.md).
 
 Only mechanical, lossless-in-meaning rewrites live here. Anything we cannot

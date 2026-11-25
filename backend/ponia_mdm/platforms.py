@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """Ponia platform table (from Ponia.Roms/README.ponia-format.md) and detection hints."""
 import re
 

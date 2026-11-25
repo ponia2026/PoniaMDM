@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """EmuELEC / EmulationStation: <roms>/<system>/gamelist.xml (+ images/, videos/)."""
 import os
 import re

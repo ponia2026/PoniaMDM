@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """Find games in a user folder and decide their platform.
 
 Evidence, strongest first (the reason is recorded on every item):

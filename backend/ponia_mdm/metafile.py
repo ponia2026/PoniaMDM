@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """Reader/writer for Pegasus-style metadata text (also used by metadata.ponia.txt)."""
 import re
 

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """In-place conversion with a restorable backup.
 
 convert(): backup every metadata.pegasus.txt (byte-exact copy + manifest),

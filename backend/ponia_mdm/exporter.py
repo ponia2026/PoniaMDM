@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """Export the SQLite model as a restorable backup folder.
 
 The layout mirrors the source root, so copying the whole folder back over

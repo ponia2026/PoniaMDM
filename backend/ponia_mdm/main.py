@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """HTTP API for the Vue UI. One in-memory working session (single user, local app)."""
 import os
 import sys
@@ -8,7 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import platforms as P
+from . import inplace, platforms as P
 from .converters import CONVERTERS
 from .writer import write_library
 
@@ -44,9 +46,60 @@ def _row(i, r):
             "edited": r["edited"], "media": list(e.media)}
 
 
+class PegasusReq(BaseModel):
+    root: str
+    backup: str
+    keep_pegasus: bool = False
+
+
+def _legal_dir():
+    base = getattr(sys, "_MEIPASS", None)
+    return os.path.join(base, "legal") if base else os.path.join(os.path.dirname(__file__), "..", "..")
+
+
+@app.get("/api/about")
+def about():
+    d = _legal_dir()
+    txt = {}
+    for k, f in (("notice", "NOTICE.md"), ("license", "LICENSE.md")):
+        try:
+            with open(os.path.join(d, f), encoding="utf-8") as fh:
+                txt[k] = fh.read()
+        except OSError:
+            txt[k] = ""
+    from . import __version__
+    return {"version": __version__, **txt}
+
+
+@app.post("/api/pegasus/convert")
+def pegasus_convert(req: PegasusReq):
+    if not os.path.isdir(req.root):
+        raise HTTPException(400, f"資料夾不存在：{req.root}")
+    if not req.backup.strip():
+        raise HTTPException(400, "請指定備份資料夾")
+    log = []
+    try:
+        stats = inplace.convert(req.root, req.backup, req.keep_pegasus, log=log.append)
+    except SystemExit as e:
+        raise HTTPException(400, str(e))
+    return {"stats": stats, "log": log}
+
+
+@app.post("/api/pegasus/restore")
+def pegasus_restore(req: PegasusReq):
+    try:
+        n = inplace.restore(req.root, req.backup)
+    except SystemExit as e:
+        raise HTTPException(400, str(e))
+    except OSError as e:
+        raise HTTPException(400, f"找不到備份：{e}")
+    return {"restored": n}
+
+
 @app.get("/api/sources")
 def sources():
-    return [{"key": k, "label": c.label} for k, c in CONVERTERS.items() if k != "pegasus"]
+    order = ["pegasus", "folder", "emuelec"]
+    return [{"key": k, "label": CONVERTERS[k].label} for k in order]
 
 
 @app.get("/api/platforms")
@@ -114,8 +167,4 @@ def _dist_dir():
 
 _DIST = _dist_dir()
 if os.path.isdir(_DIST):
-    app.mount("/assets", StaticFiles(directory=os.path.join(_DIST, "assets")), name="assets")
-
-    @app.get("/")
-    def index():
-        return FileResponse(os.path.join(_DIST, "index.html"))
+    app.mount("/", StaticFiles(directory=_DIST, html=True), name="ui")   # after all /api routes

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """SQLite storage: the canonical Ponia metadata model.
 
 Every section of a metadata file keeps its ordered (key, value) pairs in a

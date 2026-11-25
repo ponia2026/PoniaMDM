@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 """Write a Ponia library (platform folders + metadata.ponia.txt + media) from entries."""
 import json
 import os

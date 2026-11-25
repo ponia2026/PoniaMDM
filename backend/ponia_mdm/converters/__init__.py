@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Equuleus Works
 from .base import Converter
 from .pegasus import PegasusConverter
 from .emuelec import EmuelecConverter
