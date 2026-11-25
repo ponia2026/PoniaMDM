@@ -84,14 +84,14 @@ def about():
 @app.post("/api/pegasus/convert")
 def pegasus_convert(req: PegasusReq):
     if not os.path.isdir(req.root):
-        raise HTTPException(400, f"資料夾不存在：{req.root}")
+        raise HTTPException(400, f"err.folder_missing|{req.root}")
     if not req.backup.strip():
-        raise HTTPException(400, "請指定備份資料夾")
+        raise HTTPException(400, "err.backup_required")
     log = []
     try:
         stats = inplace.convert(req.root, req.backup, req.keep_pegasus, log=log.append)
     except SystemExit as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, "err.raw|" + str(e))
     return {"stats": stats, "log": log}
 
 
@@ -100,9 +100,9 @@ def pegasus_restore(req: PegasusReq):
     try:
         n = inplace.restore(req.root, req.backup)
     except SystemExit as e:
-        raise HTTPException(400, str(e))
+        raise HTTPException(400, "err.raw|" + str(e))
     except OSError as e:
-        raise HTTPException(400, f"找不到備份：{e}")
+        raise HTTPException(400, f"err.backup_not_found|{e}")
     return {"restored": n}
 
 
@@ -121,9 +121,9 @@ def plats():
 @app.post("/api/scan")
 def scan(req: ScanReq):
     if req.source not in ("folder", "emuelec"):
-        raise HTTPException(400, "unknown source")
+        raise HTTPException(400, "err.unknown_source")
     if not os.path.isdir(req.path):
-        raise HTTPException(400, f"資料夾不存在：{req.path}")
+        raise HTTPException(400, f"err.folder_missing|{req.path}")
     entries, review = CONVERTERS[req.source]().build(req.path, arcade_engine=req.arcade_engine)
     S.update(rows=[{"e": e, "include": True, "edited": False,
                     "orig": (e.platform, e.hack)} for e in entries],
@@ -163,7 +163,7 @@ def update(req: UpdateReq):
 def export(req: ExportReq):
     es = [r["e"] for r in S["rows"] if r["include"]]
     if not es:
-        raise HTTPException(400, "沒有可匯出的項目")
+        raise HTTPException(400, "err.nothing_to_export")
     rep = write_library(es, req.out, req.roms, req.zh == "trad")
     return rep
 

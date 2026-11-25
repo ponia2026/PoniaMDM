@@ -24,7 +24,7 @@ def _first(pairs, key):
 
 class PegasusConverter(Converter):
     key = "pegasus"
-    label = "Pegasus (跳坑者聯盟)"
+    label = "Pegasus"
 
     def import_from(self, src, con):
         """src = a root holding one sub-folder per collection, or a single collection folder."""

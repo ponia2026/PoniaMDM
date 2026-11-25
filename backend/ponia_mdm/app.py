@@ -47,23 +47,41 @@ def _free_port(preferred=8765):
             s.close()
 
 
+LANGUAGES = [("en", "English"), ("zh-CN", "简体中文"), ("zh-TW", "繁體中文"), ("es", "Español"),
+             ("pt", "Português"), ("ru", "Русский"), ("ja", "日本語"), ("fr", "Français"),
+             ("de", "Deutsch")]
+# Native menu text. Only zh-TW so far; other languages fall back to it until translated.
+# (A native menu cannot be rebuilt while running, so a language change shows in the menu on next start.)
+MENU_TEXT = {"zh-TW": {
+    "file": "檔案(F)", "save_defaults": "保存為預設值", "load_defaults": "讀取預設值", "exit": "離開(X)",
+    "language": "語言(L)", "theme": "主題(T)", "system": "跟隨系統", "light": "淺色", "dark": "深色",
+    "help": "說明(H)", "home": "首頁", "about": "關於",
+}}
+
+
 def _menu(window):
     from webview.menu import Menu, MenuAction, MenuSeparator
 
     def js(code):
         return lambda: window.evaluate_js(code)
 
+    m = MENU_TEXT.get(settings.load().get("lang"), MENU_TEXT["zh-TW"])
     return [
-        Menu("檔案(F)", [MenuAction("離開(X)", window.destroy)]),
-        Menu("主題(T)", [
-            MenuAction("跟隨系統", js("window.setTheme('system')")),
-            MenuAction("淺色", js("window.setTheme('light')")),
-            MenuAction("深色", js("window.setTheme('dark')")),
-        ]),
-        Menu("說明(H)", [
-            MenuAction("專案首頁", lambda: webbrowser.open(HOMEPAGE)),
+        Menu(m["file"], [
+            MenuAction(m["save_defaults"], js("window.saveDefaults()")),
+            MenuAction(m["load_defaults"], js("window.loadDefaults()")),
             MenuSeparator(),
-            MenuAction("關於與授權", js("window.openAbout()")),
+            MenuAction(m["exit"], window.destroy),
+        ]),
+        Menu(m["language"], [MenuAction(name, js(f"window.setLang('{code}')")) for code, name in LANGUAGES]),
+        Menu(m["theme"], [
+            MenuAction(m["system"], js("window.setTheme('system')")),
+            MenuAction(m["light"], js("window.setTheme('light')")),
+            MenuAction(m["dark"], js("window.setTheme('dark')")),
+        ]),
+        Menu(m["help"], [
+            MenuAction(m["home"], lambda: webbrowser.open(HOMEPAGE)),
+            MenuAction(m["about"], js("window.openAbout()")),
         ]),
     ]
 

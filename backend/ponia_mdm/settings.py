@@ -10,8 +10,10 @@ import os
 import sys
 
 NAME = "PoniaMDM.settings.json"
-DEFAULTS = {"theme": "system", "source": "pegasus", "peg": {}, "folder_path": "",
-            "engine": "MAME", "export": {}, "window": {"width": 1100, "height": 700}}
+# theme / lang / window follow the user automatically; "defaults" is the saved form
+# (File > Save as defaults) that the app restores on start and on File > Load defaults.
+DEFAULTS = {"theme": "system", "lang": "zh-TW", "defaults": {},
+            "window": {"width": 1100, "height": 700}}
 
 
 def _dir():
