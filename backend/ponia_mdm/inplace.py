@@ -13,7 +13,15 @@ import json
 import os
 import shutil
 
-from . import metafile, ponia_rules, zh
+from . import metafile, ponia_rules, review, zh
+
+
+class MdmError(Exception):
+    """A user-facing failure: `code` is a translation key, `arg` fills its placeholder."""
+
+    def __init__(self, code, arg=""):
+        super().__init__(f"{code}: {arg}")
+        self.code, self.arg = code, arg
 
 SRC_NAME = "metadata.pegasus.txt"
 DST_NAME = "metadata.ponia.txt"
@@ -38,13 +46,14 @@ def _find(root):
     return sorted(hits)
 
 
-def convert(root, backup_dir, keep_pegasus=False, log=print, trad=False):
+def convert(root, backup_dir, keep_pegasus=False, log=None, trad=False):
+    log = log or (lambda it: print(review.format_item(it)))
     root, backup_dir = os.path.abspath(root), os.path.abspath(backup_dir)
     rels = _find(root)
     if not rels:
-        raise SystemExit(f"no {SRC_NAME} under {root}")
+        raise MdmError("err.no_pegasus", root)
     if os.path.exists(os.path.join(backup_dir, MANIFEST)):
-        raise SystemExit(f"backup already exists: {backup_dir} (choose another folder)")
+        raise MdmError("err.backup_exists", backup_dir)
     # 1) backup + verify before changing anything
     manifest = {"root": root, "files": {}}
     for rel in rels:
@@ -53,7 +62,7 @@ def convert(root, backup_dir, keep_pegasus=False, log=print, trad=False):
         os.makedirs(os.path.dirname(d), exist_ok=True)
         shutil.copy2(s, d)
         if _sha(s) != _sha(d):
-            raise SystemExit(f"backup verify failed: {rel}")
+            raise MdmError("err.backup_verify", rel)
         manifest["files"][rel or "."] = _sha(s)
     with open(os.path.join(backup_dir, MANIFEST), "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=1)
@@ -63,15 +72,15 @@ def convert(root, backup_dir, keep_pegasus=False, log=print, trad=False):
         folder = os.path.join(root, rel)
         target = os.path.join(folder, DST_NAME)
         if os.path.exists(target):
-            log(f"skip (already has {DST_NAME}): {rel or '.'}")
+            log({"kind": "skip", "rel": rel})
             stats["skipped"] += 1
             continue
         with open(os.path.join(folder, SRC_NAME), encoding="utf-8-sig", newline="") as f:
             sections = metafile.parse(f.read())
 
-        def warn(m, rel=rel):
+        def warn(kind, key, value, rel=rel):
             stats["warnings"] += 1
-            log(f"warn [{rel or '.'}] {m}")
+            log({"kind": kind, "rel": rel, "key": key, "value": value})
 
         conv = ponia_rules.convert_sections(sections, warn)
         if trad:                                  # Simplified -> Traditional (text fields only)
@@ -94,7 +103,7 @@ def restore(root, backup_dir, log=print):
         rel = "" if rel == "." else rel
         s = os.path.join(backup_dir, rel, SRC_NAME)
         if _sha(s) != digest:
-            raise SystemExit(f"backup is damaged: {rel or '.'}")
+            raise MdmError("err.backup_damaged", rel or ".")
         folder = os.path.join(root, rel)
         os.makedirs(folder, exist_ok=True)
         shutil.copy2(s, os.path.join(folder, SRC_NAME))

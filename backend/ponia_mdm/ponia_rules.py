@@ -52,7 +52,7 @@ def convert_pairs(pairs, warn):
         if k in ("release", "releasedate"):
             n = norm_date(v)
             if n is None:
-                warn(f"unparsed {k}: {v!r}")
+                warn("unparsed", k, v)
                 if k == "releasedate":
                     continue
                 out.append((k, v))
@@ -61,7 +61,7 @@ def convert_pairs(pairs, warn):
         elif k == "rating":
             n = norm_rating(v)
             if n is None:
-                warn(f"unparsed rating: {v!r}")
+                warn("unparsed", "rating", v)
             else:
                 v = n
         out.append((k, v))
@@ -76,5 +76,5 @@ def convert_pairs(pairs, warn):
     return res
 
 
-def convert_sections(sections, warn=lambda m: None):
+def convert_sections(sections, warn=lambda *a: None):
     return [(kind, convert_pairs(pairs, warn)) for kind, pairs in sections]

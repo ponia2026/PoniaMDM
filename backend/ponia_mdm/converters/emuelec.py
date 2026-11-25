@@ -80,7 +80,7 @@ class EmuelecConverter(Converter):
                 try:
                     root = ET.parse(gl).getroot()
                 except ET.ParseError as e:
-                    review.append(f"BADXML     {sysname}/gamelist.xml ({e})")
+                    review.append({"kind": "BADXML", "path": f"{sysname}/gamelist.xml", "error": str(e)})
                     root = None
                 for g in (root.findall("game") if root is not None else []):
                     path = _text(g, "path")
@@ -98,7 +98,7 @@ class EmuelecConverter(Converter):
                                 title=_text(g, "name") or detect.title_from(os.path.basename(rel)),
                                 file=rel.replace(os.sep, "/"), src=full, media=_media(sysdir, g),
                                 archive=detect.ext_of(rel) in P.ARCHIVE_EXT,
-                                conf="high", reason="EmuELEC system folder + gamelist.xml")
+                                conf="high", reason="emuelec_list")
                     pairs = {
                         "developer": _text(g, "developer"), "publisher": _text(g, "publisher"),
                         "genre": _text(g, "genre"), "players": _players(_text(g, "players")),
@@ -108,8 +108,7 @@ class EmuelecConverter(Converter):
                     ent.pairs = [(k, v) for k, v in pairs.items() if v]
                     entries.append(ent)
             if missing:
-                review.append(f"MISSING    {sysname}: {len(missing)} listed in gamelist but not on disk, "
-                              f"e.g. {', '.join(missing[:3])}")
+                review.append({"kind": "MISSING", "system": sysname, "n": len(missing), "examples": missing[:3]})
             # files the gamelist does not know: classify them like a user folder
             hint_items = []
             for fn in sorted(os.listdir(sysdir)):
@@ -129,7 +128,7 @@ class EmuelecConverter(Converter):
             # keep EmuELEC's own system as the platform for generic containers
             for it in hint_items:
                 if it.platform is None and plat in P.PLATFORMS:
-                    it.platform, it.conf, it.reason = plat, "low", "system folder"
+                    it.platform, it.conf, it.reason = plat, "low", "sysfolder"
             entries += [entry_from_item(i) for i in hint_items]
             review += review_lines(hint_items, [])
         return entries, review

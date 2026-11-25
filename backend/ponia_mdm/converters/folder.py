@@ -20,22 +20,22 @@ def entry_from_item(it):
 def review_lines(items, skipped):
     """Things a human should look at: weak evidence, conflicts, unsupported archives."""
     out = []
+    solid = {"folder", "ext", "arch_ext", "sysfolder", "emuelec_list", "manual"}
     for it in items:
         plat = it.platform
         if plat is None:
-            out.append(f"UNSORTED   {it.rel}  ({it.reason})")
+            out.append({"kind": "UNSORTED", "path": it.rel, "reason": it.reason})
             continue
-        if it.conf in ("low", "medium") and not it.is_bios and "folder" not in it.reason \
-                and "extension" not in it.reason and "archive contains" not in it.reason:
-            out.append(f"GUESS      {it.rel}  -> {plat}  ({it.reason})")
+        if it.conf in ("low", "medium") and not it.is_bios and it.reason.split("|")[0] not in solid:
+            out.append({"kind": "GUESS", "path": it.rel, "plat": plat, "reason": it.reason})
         for n in it.notes:
-            out.append(f"CONFLICT   {it.rel}  {n}")
+            out.append({"kind": "CONFLICT", "path": it.rel, "note": n})
         ext = detect.ext_of(it.name)
         if ext == "7z":
-            out.append(f"7Z         {it.rel}  (players usually cannot read .7z; repack as .zip)")
+            out.append({"kind": "ARCHIVE7Z", "path": it.rel})
         elif ext == "zip" and plat in P.PLATFORMS and not P.PLATFORMS[plat]["zip_ok"]:
-            out.append(f"ZIP        {it.rel}  ({plat} cores normally cannot read .zip)")
-    out += [f"SKIPPED    {s}  (unknown file type)" for s in skipped]
+            out.append({"kind": "ZIPDISC", "path": it.rel, "plat": plat})
+    out += [{"kind": "SKIPPED", "path": s} for s in skipped]
     return out
 
 

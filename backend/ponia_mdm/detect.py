@@ -96,7 +96,7 @@ def _inner_platform(members):
             votes[k] = votes.get(k, 0) + 1
     if votes:
         k = max(votes, key=votes.get)
-        return k, f"archive contains .{next(e for e in exts if P.UNIQUE_EXT.get(e) == k)}"
+        return k, f"arch_ext|{next(e for e in exts if P.UNIQUE_EXT.get(e) == k)}"
     if any(e in DISC_EXT for e in exts):
         return None, "disc"
     if exts and all(e == "bin" for e in exts):
@@ -173,24 +173,24 @@ def classify(item, hint, hint_hack, arcade_engine="MAME"):
         if inner:
             set_(inner, "high", why)
             if hint and hint != inner and not (hint in ("MAME", "FBNeo") and inner == hint):
-                item.notes.append(f"folder says {hint}, archive content says {inner}")
+                item.notes.append(f"conflict_arch|{hint}|{inner}")
             return
         if hint:
-            set_(hint, "medium", f"folder name ({why})")
+            set_(hint, "medium", "folder")
             return
         if why == "chips" and not item.members == []:
-            set_(arcade_engine, "medium", "romset of chips: assumed arcade")
+            set_(arcade_engine, "medium", "arcade_guess")
             item.is_bios = base in ARCADE_BIOS
             return
-        set_(None, "none", f"archive undecided ({why})")
+        set_(None, "none", "arch_undecided")
         return
 
     plat = P.UNIQUE_EXT.get(ext)
     if plat:
-        set_(plat, "high", f"extension .{ext}")
+        set_(plat, "high", f"ext|{ext}")
         if hint and hint != plat and P.PLATFORMS.get(hint, {}).get("collection") != \
                 P.PLATFORMS[plat]["collection"]:
-            item.notes.append(f"folder says {hint}, extension says {plat}")
+            item.notes.append(f"conflict_ext|{hint}|{plat}")
         return
 
     if ext in DISC_EXT or ext in ("bin", "rom"):
@@ -199,15 +199,15 @@ def classify(item, hint, hint_hack, arcade_engine="MAME"):
             probe = os.path.join(os.path.dirname(item.path), item.companions[0])
         sniffed = sniff_disc(probe) if ext != "chd" else None
         if sniffed:
-            set_(sniffed, "medium", "disc header")
+            set_(sniffed, "medium", "disc_header")
             return
         if hint:
-            set_(hint, "medium", "folder name")
+            set_(hint, "medium", "folder")
             return
     if hint and ext in P.ARCHIVE_EXT | {"rom", "bin"}:
-        set_(hint, "low", "folder name")
+        set_(hint, "low", "folder")
         return
-    set_(None, "none", f"ambiguous .{ext}, no folder hint")
+    set_(None, "none", f"ambiguous|{ext}")
 
 
 # ------------------------------------------------------------------- scan

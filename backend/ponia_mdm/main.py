@@ -91,8 +91,8 @@ def pegasus_convert(req: PegasusReq):
     log = []
     try:
         stats = inplace.convert(req.root, req.backup, req.keep_pegasus, log=log.append, trad=req.trad)
-    except SystemExit as e:
-        raise HTTPException(400, "err.raw|" + str(e))
+    except inplace.MdmError as e:
+        raise HTTPException(400, f"{e.code}|{e.arg}")
     return {"stats": stats, "log": log}
 
 
@@ -100,8 +100,8 @@ def pegasus_convert(req: PegasusReq):
 def pegasus_restore(req: PegasusReq):
     try:
         n = inplace.restore(req.root, req.backup)
-    except SystemExit as e:
-        raise HTTPException(400, "err.raw|" + str(e))
+    except inplace.MdmError as e:
+        raise HTTPException(400, f"{e.code}|{e.arg}")
     except OSError as e:
         raise HTTPException(400, f"err.backup_not_found|{e}")
     return {"restored": n}
@@ -109,7 +109,7 @@ def pegasus_restore(req: PegasusReq):
 
 @app.get("/api/sources")
 def sources():
-    order = ["pegasus", "folder", "emuelec"]
+    order = ["pegasus", "emuelec", "folder"]
     return [{"key": k, "label": CONVERTERS[k].label} for k in order]
 
 

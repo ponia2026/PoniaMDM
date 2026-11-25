@@ -4,6 +4,7 @@ import argparse
 import os
 
 from . import db, inplace
+from .review import format_item
 from .converters import CONVERTERS
 from .exporter import export
 from .writer import write_library, undo_moves
@@ -53,7 +54,7 @@ def main():
         entries, review = CONVERTERS[a.source]().build(a.src, arcade_engine=a.arcade_engine)
         rep = write_library(entries, a.out, a.roms, a.zh == "trad")
         os.makedirs(a.out, exist_ok=True)
-        lines = review + ["WARNING    " + w for w in rep["warnings"]]
+        lines = [format_item(x) for x in review + rep["warnings"]]
         with open(os.path.join(a.out, "review.txt"), "w", encoding="utf-8") as f:
             f.write("\n".join(lines) + "\n")
         for folder, n in rep["folders"].items():
@@ -66,4 +67,7 @@ def main():
             con, a.out, a.filename, not a.no_media))
 
 
-main()
+try:
+    main()
+except inplace.MdmError as e:
+    raise SystemExit(f"{e.code}: {e.arg}")

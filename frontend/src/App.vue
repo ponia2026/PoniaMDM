@@ -44,6 +44,35 @@ const api = async (url, body) => {
   if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || r.statusText) }
   return r.json()
 }
+// reasons / notes arrive as "code|a|b"
+const why = c => {
+  const [k, a, b] = String(c).split('|')
+  const key = 'why.' + k
+  const s = t(key, { a, b })
+  return s === key ? c : s
+}
+const reviewText = it => {
+  const k = 'review.' + it.kind
+  const s = t(k, { ...it, reason: it.reason ? why(it.reason) : '', note: it.note ? why(it.note) : '',
+    examples: Array.isArray(it.examples) ? it.examples.join(', ') : '' })
+  return s === k ? JSON.stringify(it) : s
+}
+// Pegasus conversion events: group the "not a date / not a rating" warnings per folder and field
+const pegLines = computed(() => {
+  const groups = new Map(), lines = []
+  for (const e of (pegOut.value && pegOut.value.log) || []) {
+    if (e.kind === 'skip') { lines.push(t('warn.skip', { rel: e.rel || '.' })); continue }
+    const k = e.rel + '\u0000' + e.key
+    if (!groups.has(k)) groups.set(k, { rel: e.rel || '.', key: e.key, n: 0, ex: [] })
+    const g = groups.get(k); g.n++
+    if (g.ex.length < 3 && !g.ex.includes(e.value)) g.ex.push(e.value)
+  }
+  for (const g of groups.values()) {
+    const kk = 'warn.unparsed_' + (g.key === 'release' || g.key === 'releasedate' ? 'release' : g.key === 'rating' ? 'rating' : 'other')
+    lines.push(t(kk, { rel: g.rel, key: g.key, n: g.n, examples: g.ex.join('、') }))
+  }
+  return lines
+})
 // backend errors arrive as "err.key|argument"
 const errText = e => {
   const [k, ...rest] = String(e.message).split('|')
@@ -151,7 +180,7 @@ async function update(ids, patch) {
   rows.value.forEach(r => {
     if (!set.has(r.id)) return
     Object.assign(r, patch)
-    if (patch.platform !== undefined) { r.conf = 'high'; r.reason = t('res.manual'); r.notes = [] }
+    if (patch.platform !== undefined) { r.conf = 'high'; r.reason = 'manual'; r.notes = [] }
     if (patch.platform !== undefined || patch.hack !== undefined || patch.title !== undefined) r.edited = true
   })
 }
@@ -206,7 +235,8 @@ async function doExport() {
       </div>
       <div v-if="pegOut && pegOut.stats" class="report">
         {{ t('peg.summary', pegOut.stats) }}
-        <div v-for="(l, i) in pegOut.log.slice(0, 200)" :key="i" class="note">{{ l }}</div>
+        <div v-if="pegLines.length" class="msg">{{ t('peg.warn_hint') }}</div>
+        <div v-for="(l, i) in pegLines" :key="i" class="note">{{ l }}</div>
       </div>
     </template>
   </section>
@@ -227,7 +257,7 @@ async function doExport() {
         </select>
         <button @click="showReview = !showReview" v-if="review.length">{{ t('res.notes', { n: review.length }) }}</button>
       </div>
-      <pre v-if="showReview" class="review">{{ review.join('\n') }}</pre>
+      <pre v-if="showReview" class="review">{{ review.map(reviewText).join('\n') }}</pre>
 
       <div class="row bulk" :class="{ on: selected.size }">
         <span>{{ t('res.selected', { n: selected.size }) }}</span>
@@ -263,7 +293,7 @@ async function doExport() {
               </td>
               <td><input type="checkbox" :checked="r.hack" @change="update([r.id], { hack: $event.target.checked })" /></td>
               <td><span class="badge" :class="r.conf">{{ t('conf.' + r.conf) }}</span></td>
-              <td class="why">{{ r.reason }}<span v-for="n in r.notes" :key="n" class="note"> ⚠ {{ n }}</span></td>
+              <td class="why">{{ why(r.reason) }}<span v-for="n in r.notes" :key="n" class="note"> ⚠ {{ why(n) }}</span></td>
             </tr>
           </tbody>
         </table>
@@ -292,7 +322,7 @@ async function doExport() {
       </div>
       <div v-if="report" class="report">
         <div v-for="(n, f) in report.folders" :key="f">{{ t('exp.folder_line', { folder: f, n }) }}</div>
-        <div v-for="w in report.warnings" :key="w" class="note">⚠ {{ w }}</div>
+        <div v-for="(w, i) in report.warnings" :key="i" class="note">⚠ {{ reviewText(w) }}</div>
       </div>
     </section>
   </template>

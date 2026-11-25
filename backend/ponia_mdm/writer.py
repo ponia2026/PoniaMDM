@@ -64,7 +64,7 @@ def write_library(entries, out, roms="none", trad=True, log=print):
         fdir = os.path.join(out, folder)
         for e in sorted(es, key=lambda x: x.title.lower()):
             if e.file in seen:
-                report["warnings"].append(f"duplicate file name in {folder}: {e.file}")
+                report["warnings"].append({"kind": "DUPLICATE", "folder": folder, "file": e.file})
                 continue
             seen.add(e.file)
             _transfer(e.src, os.path.join(fdir, e.file), roms, journal)
