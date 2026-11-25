@@ -11,6 +11,7 @@ apply Taiwan wording swaps (that would be `s2twp`).
 (e.g. 魂斗罗 must be 魂斗羅, not 魂鬥羅). Overrides win over the engine.
 """
 import json
+from functools import lru_cache
 import os
 import re
 
@@ -36,6 +37,7 @@ def _load():
 _HAS_CJK = re.compile(r"[一-鿿]")
 
 
+@lru_cache(maxsize=100000)
 def to_trad(text):
     if not text or not _HAS_CJK.search(text):
         return text

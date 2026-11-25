@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { t, lang, setLang, LANGS } from './i18n.js'
+import { t, lang, setLang, detectLang } from './i18n.js'
 
 const sources = ref([])
 const platforms = ref([])
@@ -27,6 +27,17 @@ const report = ref(null)
 const showReview = ref(false)
 const theme = ref('system')
 const loaded = ref(false)
+const trad = ref(false)         // "output as Traditional Chinese"; only offered for zh-CN / zh-TW UI
+const isZh = computed(() => lang.value === 'zh-CN' || lang.value === 'zh-TW')
+const wantTrad = () => trad.value && isZh.value
+
+// default backup folder = "<ROM folder>_MDM", until the user types their own
+let autoBackup = ''
+watch(() => peg.value.root, r => {
+  const next = r ? r.replace(/[\\/]+$/, '') + '_MDM' : ''
+  if (!peg.value.backup || peg.value.backup === autoBackup) peg.value.backup = next
+  autoBackup = next
+})
 
 const api = async (url, body) => {
   const r = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
@@ -53,7 +64,7 @@ async function openAbout() { if (!about.value) about.value = await api('/api/abo
 async function pegRun(kind) {
   busy.value = true; msg.value = ''; pegOut.value = null
   try {
-    const d = await api('/api/pegasus/' + kind, peg.value)
+    const d = await api('/api/pegasus/' + kind, { ...peg.value, trad: wantTrad() })
     pegOut.value = d
     msg.value = kind === 'convert' ? t('status.converted') : t('status.restored', { n: d.restored })
   } catch (e) { msg.value = errText(e) } finally { busy.value = false }
@@ -64,14 +75,15 @@ function setTheme(v) { theme.value = v; document.documentElement.dataset.theme =
 function changeLang(code) { setLang(code); api('/api/settings', { lang: lang.value }).catch(() => {}) }
 watch(theme, () => { if (loaded.value) api('/api/settings', { theme: theme.value }).catch(() => {}) })
 
-const formState = () => ({ source: source.value, peg: peg.value, folder_path: path.value, engine: engine.value, export: exp.value })
+const formState = () => ({ source: source.value, peg: peg.value, folder_path: path.value, engine: engine.value, export: exp.value, trad: trad.value })
 function applyForm(d) {
   d = d || {}
   source.value = d.source || 'pegasus'
   peg.value = { root: '', backup: '', keep_pegasus: false, ...(d.peg || {}) }
   path.value = d.folder_path || ''
   engine.value = d.engine || 'MAME'
-  exp.value = { out: '', roms: 'none', zh: 'keep', ...(d.export || {}) }
+  exp.value = { out: '', roms: 'none', ...(d.export || {}) }
+  trad.value = !!d.trad
 }
 async function saveDefaults() {
   try { await api('/api/settings', { defaults: formState() }); msg.value = t('status.defaults_saved') }
@@ -89,7 +101,7 @@ onMounted(async () => {
   try {
     const s = await api('/api/settings')
     setTheme(s.theme || 'system')
-    setLang(s.lang || 'zh-TW')
+    setLang(s.lang || detectLang())
     applyForm(s.defaults)
   } catch (e) { /* first run */ }
   loaded.value = true
@@ -153,7 +165,7 @@ const selectAllFiltered = () => { selected.value = new Set(filtered.value.map(r 
 const bulk = async patch => { await update([...selected.value], patch); selected.value = new Set() }
 async function doExport() {
   busy.value = true; msg.value = ''
-  try { report.value = await api('/api/export', exp.value); msg.value = t('status.exported') }
+  try { report.value = await api('/api/export', { ...exp.value, zh: wantTrad() ? 'trad' : 'keep' }); msg.value = t('status.exported') }
   catch (e) { msg.value = errText(e) } finally { busy.value = false }
 }
 </script>
@@ -188,6 +200,7 @@ async function doExport() {
       </div>
       <div class="row">
         <label><input type="checkbox" v-model="peg.keep_pegasus" /> {{ t('peg.keep') }}</label>
+        <label v-if="isZh"><input type="checkbox" v-model="trad" /> {{ t('opt.trad') }}</label>
         <button class="primary" :disabled="busy || !peg.root || !peg.backup" @click="pegRun('convert')">{{ t('peg.convert') }}</button>
         <button :disabled="busy || !peg.root || !peg.backup" @click="pegRun('restore')">{{ t('peg.restore') }}</button>
       </div>
@@ -274,10 +287,7 @@ async function doExport() {
           <option value="link">{{ t('exp.roms_link') }}</option>
           <option value="move">{{ t('exp.roms_move') }}</option>
         </select>
-        <select v-model="exp.zh">
-          <option value="keep">{{ t('exp.zh_keep') }}</option>
-          <option value="trad">{{ t('exp.zh_trad') }}</option>
-        </select>
+        <label v-if="isZh"><input type="checkbox" v-model="trad" /> {{ t('opt.trad') }}</label>
         <button class="primary" :disabled="busy || !exp.out" @click="doExport">{{ t('exp.run') }}</button>
       </div>
       <div v-if="report" class="report">

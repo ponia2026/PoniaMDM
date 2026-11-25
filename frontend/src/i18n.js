@@ -25,6 +25,14 @@ const BUNDLES = { 'zh-TW': zhTW, en, 'zh-CN': zhCN, es, pt, ru, ja, fr, de }
 
 export const lang = ref('zh-TW')
 
+// First run: follow the OS / WebView2 UI language; unsupported languages fall back to English.
+export function detectLang() {
+  const l = ((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase()
+  if (l.startsWith('zh')) return /tw|hk|mo|hant/.test(l) ? 'zh-TW' : 'zh-CN'
+  const base = l.split('-')[0]
+  return BUNDLES[base] ? base : 'en'
+}
+
 export function setLang(code) {
   lang.value = BUNDLES[code] ? code : 'zh-TW'
   document.documentElement.lang = lang.value

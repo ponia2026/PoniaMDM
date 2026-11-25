@@ -13,7 +13,7 @@ import json
 import os
 import shutil
 
-from . import metafile, ponia_rules
+from . import metafile, ponia_rules, zh
 
 SRC_NAME = "metadata.pegasus.txt"
 DST_NAME = "metadata.ponia.txt"
@@ -38,7 +38,7 @@ def _find(root):
     return sorted(hits)
 
 
-def convert(root, backup_dir, keep_pegasus=False, log=print):
+def convert(root, backup_dir, keep_pegasus=False, log=print, trad=False):
     root, backup_dir = os.path.abspath(root), os.path.abspath(backup_dir)
     rels = _find(root)
     if not rels:
@@ -74,6 +74,8 @@ def convert(root, backup_dir, keep_pegasus=False, log=print):
             log(f"warn [{rel or '.'}] {m}")
 
         conv = ponia_rules.convert_sections(sections, warn)
+        if trad:                                  # Simplified -> Traditional (text fields only)
+            conv = [(k, zh.convert_pairs(p)) for k, p in conv]
         with open(target, "w", encoding="utf-8", newline="") as f:
             f.write(metafile.dump(conv, header=ponia_rules.HEADER))
         stats["folders"] += 1

@@ -50,6 +50,7 @@ class PegasusReq(BaseModel):
     root: str
     backup: str
     keep_pegasus: bool = False
+    trad: bool = False
 
 
 def _legal_dir():
@@ -89,7 +90,7 @@ def pegasus_convert(req: PegasusReq):
         raise HTTPException(400, "err.backup_required")
     log = []
     try:
-        stats = inplace.convert(req.root, req.backup, req.keep_pegasus, log=log.append)
+        stats = inplace.convert(req.root, req.backup, req.keep_pegasus, log=log.append, trad=req.trad)
     except SystemExit as e:
         raise HTTPException(400, "err.raw|" + str(e))
     return {"stats": stats, "log": log}

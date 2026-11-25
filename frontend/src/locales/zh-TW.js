@@ -5,12 +5,12 @@ export default {
   'sec.export': '3. 匯出',
 
   'src.pegasus': 'Pegasus',
-  'src.folder': '自訂資料夾',
-  'src.emuelec': 'EmuELEC (gamelist.xml)',
+  'src.folder': '自定資料夾',
+  'src.emuelec': 'EmuELEC',
 
-  'peg.intro': '先把原本的 Pegasus metadata 備份到另一個資料夾，再在原處換成 Ponia metadata；需要時可一鍵還原。圖片、影片與 ROM 都不會被動到。',
+  'peg.intro': '將原本的 Pegasus metadata 備份到另一個資料夾，再於原處轉換為 Ponia metadata；需要時可一鍵還原，圖片、影片與 ROM 都不會被動到。',
   'peg.root_ph': 'Roms 資料夾（內含各機種資料夾），例如 D:\\Roms',
-  'peg.backup_ph': '備份資料夾（放原本的 metadata.pegasus.txt），例如 D:\\Roms_備份',
+  'peg.backup_ph': '備份資料夾（預設為「ROM 資料夾名稱_MDM」）',
   'peg.keep': '轉換後保留 metadata.pegasus.txt',
   'peg.convert': '備份並轉換',
   'peg.restore': '還原 Pegasus metadata',
@@ -60,8 +60,7 @@ export default {
   'exp.roms_copy': '同時複製 ROM',
   'exp.roms_link': '同時硬連結 ROM',
   'exp.roms_move': '同時搬移 ROM（可復原）',
-  'exp.zh_keep': '文字維持原樣',
-  'exp.zh_trad': '簡體轉繁體',
+  'opt.trad': '輸出為繁體',
   'exp.run': '匯出',
   'exp.folder_line': '{folder}：{n} 款',
 
