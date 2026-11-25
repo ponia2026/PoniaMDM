@@ -200,7 +200,7 @@ onMounted(async () => {
 <template>
   <div class="app">
     <nav class="tabs">
-      <button v-for="k in TABS" :key="k" class="tab" :class="{ on: tab === k }" :title="t('tab.' + k)" @click="tab = k">
+      <button v-for="k in TABS" :key="k" class="tab" :class="{ on: tab === k }" :title="t('tab.' + k + '_tip')" @click="tab = k">
         <svg class="tic" viewBox="0 0 24 24" aria-hidden="true" v-html="ICONS[k]"></svg>
         <span class="tlabel">{{ t('tab.' + k) }}</span>
         <span class="dot" :class="stat[k].state"></span>
@@ -305,15 +305,16 @@ body { background:var(--bg); color:var(--fg); overflow:hidden; user-select:none;
 input[type=text], input:not([type]), textarea, pre, .file, .why, .line, .note { user-select:text }
 
 .app { display:flex; height:100vh }
-.tabs { width:188px; flex:none; padding:10px 8px; border-right:1px solid var(--line); background:var(--card); display:flex; flex-direction:column; gap:4px }
+.tabs { width:200px; flex:none; padding:10px 8px; border-right:1px solid var(--line); background:var(--card); display:flex; flex-direction:column; gap:4px }
 .tab { display:flex; align-items:center; gap:10px; width:100%; height:auto; min-height:46px; padding:6px 10px; text-align:left; border:0; border-radius:8px; background:none; font-size:14px; line-height:1.25 }
 .tab:hover { background:var(--sel) }
 .tab.on { background:var(--sel); color:var(--acc); font-weight:600 }
-.tlabel { flex:1; min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere }
+.tlabel { flex:1; min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
 .dot { width:9px; height:9px; border-radius:50%; flex:none; background:var(--line) }
 .dot.done { background:var(--ok) } .dot.offline { background:var(--off) }
 
 .pane { flex:1; min-width:0; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:10px }
+.pane > .card { max-width:600px }
 .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px }
 .grow-card { flex:1; min-height:140px }
 h2 { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:700; margin:0 0 8px; padding-bottom:8px; border-bottom:1px solid var(--line); color:var(--fg) }

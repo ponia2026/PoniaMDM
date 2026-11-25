@@ -1,9 +1,13 @@
 // Source language. Every UI string lives here; other locales only override what they translate.
-// Keep tab labels short (about 16 characters at most in any language): the tab column has a fixed width.
+// Tab labels sit on one line of the fixed-width tab column: keep them to 14 characters or fewer in every language
+// (e.g. English "Custom", German "Eigener Ordner"). The full name goes into the matching *_tip tooltip.
 export default {
   'tab.pegasus': 'Pegasus',
   'tab.emuelec': 'EmuELEC',
   'tab.folder': '自定資料夾',
+  'tab.pegasus_tip': 'Pegasus metadata',
+  'tab.emuelec_tip': 'EmuELEC gamelist.xml',
+  'tab.folder_tip': '自定資料夾：用你自己整理的 ROM 資料夾',
 
   'card.source': '來源資料',
   'card.settings': '操作設定',
