@@ -5,12 +5,14 @@
 Only mechanical, lossless-in-meaning rewrites live here. Anything we cannot
 interpret is kept as-is and reported as a warning.
 """
+import datetime
 import re
 
 HEADER = "# Ponia metadata (Pegasus-compatible superset), one file per platform folder"
 
 _DATE8 = re.compile(r"^(\d{4})(\d{2})(\d{2})$")
 _DATE = re.compile(r"^(\d{4})(?:-(\d{1,2})(?:-(\d{1,2}))?)?$")
+_DATE_YY = re.compile(r"^(d{2})-(d{1,2})-(d{1,2})$")      # 96-5-24 (two-digit year)
 _PCT = re.compile(r"^\d{1,3}%$")
 _FLOAT = re.compile(r"^(?:0?\.\d+|1(?:\.0+)?|0)$")
 _INT = re.compile(r"^\d{1,3}$")
@@ -28,6 +30,13 @@ def norm_date(v):
     if m:
         y, mo, d = m.groups()
         return y + (f"-{int(mo):02d}" if mo else "") + (f"-{int(d):02d}" if d else "")
+    m = _DATE_YY.match(v)                      # two-digit year: only the full YY-M-D shape
+    if m:
+        yy, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if 1 <= mo <= 12 and 1 <= d <= 31:
+            # a year not later than the current one is 20yy, otherwise 19yy (retro games: 96 -> 1996, 04 -> 2004)
+            century = 2000 if yy <= datetime.date.today().year % 100 else 1900
+            return f"{century + yy}-{mo:02d}-{d:02d}"
     return None
 
 
