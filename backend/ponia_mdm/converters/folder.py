@@ -41,7 +41,6 @@ def review_lines(items, skipped):
 
 class FolderConverter(Converter):
     key = "folder"
-    label = "自訂資料夾"
 
     def build(self, src, arcade_engine="MAME", **_):
         items, skipped = detect.scan(src, arcade_engine)

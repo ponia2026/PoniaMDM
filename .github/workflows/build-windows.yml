@@ -33,11 +33,10 @@ jobs:
         with:
           name: PoniaMDM-windows
           path: |
-            dist/PoniaMDM.exe
             dist/PoniaMDM-portable.zip
       - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" dist/PoniaMDM.exe dist/PoniaMDM-portable.zip --title "PoniaMDM ${{ github.ref_name }}" --generate-notes || gh release upload "${{ github.ref_name }}" dist/PoniaMDM.exe dist/PoniaMDM-portable.zip --clobber
+        run: gh release create "${{ github.ref_name }}" dist/PoniaMDM-portable.zip --title "PoniaMDM ${{ github.ref_name }}" --generate-notes || gh release upload "${{ github.ref_name }}" dist/PoniaMDM-portable.zip --clobber

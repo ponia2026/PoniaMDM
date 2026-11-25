@@ -2,57 +2,36 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { t, lang, setLang, detectLang } from './i18n.js'
 
-const sources = ref([])
+const TABS = ['pegasus', 'emuelec', 'folder']
+const tab = ref('pegasus')
+const slots = ref({
+  pegasus: { path: '', trad: false },
+  emuelec: { path: '', trad: false, overrides: {} },
+  folder: { path: '', trad: false, engine: 'MAME', overrides: {} },
+})
+const stat = ref({ pegasus: { state: 'unset' }, emuelec: { state: 'unset' }, folder: { state: 'unset' } })
+const res = ref({ pegasus: null, emuelec: null, folder: null })   // last result per tab
 const platforms = ref([])
-const source = ref('pegasus')
-const peg = ref({ root: '', backup: '', mode: 'alongside', keep_pegasus: false, disable_original: false })
-const pegReady = computed(() => !!peg.value.root && (peg.value.mode !== 'replace' || !!peg.value.backup))
-const pegOut = ref(null)
-const about = ref(null)
-const showAbout = ref(false)
-const path = ref('')
-const engine = ref('MAME')
-const rows = ref([])
-const review = ref([])
-const selected = ref(new Set())
-const busy = ref(false)
-const msg = ref('')
-const search = ref('')
-const fPlat = ref('')
-const fOnly = ref('all')        // all | check | edited
-const page = ref(0)
-const PAGE = 200
-const bulkPlat = ref('')
-const exp = ref({ out: '', roms: 'none', zh: 'keep' })
-const report = ref(null)
-const showReview = ref(false)
 const theme = ref('system')
 const loaded = ref(false)
-const outMode = ref('inplace')     // inplace: metadata next to the ROMs; new: write a new folder
-const trad = ref(false)         // "output as Traditional Chinese"; only offered for zh-CN / zh-TW UI
-const isZh = computed(() => lang.value === 'zh-CN' || lang.value === 'zh-TW')
-const introText = computed(() => t(source.value === 'emuelec'
-  ? (outMode.value === 'inplace' ? 'emu.intro_inplace' : 'emu.intro')
-  : (outMode.value === 'inplace' ? 'folder.intro_inplace' : 'folder.intro')))
-async function removeInplace() {
-  busy.value = true; msg.value = ''
-  try { const d = await api('/api/remove-ponia', { root: path.value }); msg.value = t('status.removed', { n: d.removed }) }
-  catch (e) { msg.value = errText(e) } finally { busy.value = false }
-}
-const wantTrad = () => trad.value && isZh.value
+const about = ref(null)
+const showAbout = ref(false)
 
-// default backup folder = "<ROM folder>_MDM", until the user types their own
-let autoBackup = ''
-watch(() => peg.value.root, r => {
-  const next = r ? r.replace(/[\\/]+$/, '') + '_MDM' : ''
-  if (!peg.value.backup || peg.value.backup === autoBackup) peg.value.backup = next
-  autoBackup = next
-})
+const slot = computed(() => slots.value[tab.value])
+const st = computed(() => stat.value[tab.value])
+const r = computed(() => res.value[tab.value])
+const isZh = computed(() => lang.value === 'zh-CN' || lang.value === 'zh-TW')
+const busy = computed(() => !!r.value && r.value.kind === 'busy')
 
 const api = async (url, body) => {
-  const r = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
-  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || r.statusText) }
-  return r.json()
+  const resp = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {})
+  if (!resp.ok) { const e = await resp.json().catch(() => ({})); throw new Error(e.detail || resp.statusText) }
+  return resp.json()
+}
+// backend errors arrive as "err.key|argument"
+const errText = e => {
+  const [k, ...rest] = String(e.message).split('|')
+  return k.startsWith('err.') ? t(k, { arg: rest.join('|') }) : e.message
 }
 // reasons / notes arrive as "code|a|b"
 const why = c => {
@@ -67,11 +46,13 @@ const reviewText = it => {
     examples: Array.isArray(it.examples) ? it.examples.join(', ') : '' })
   return s === k ? JSON.stringify(it) : s
 }
-// Pegasus conversion events: group the "not a date / not a rating" warnings per folder and field
-const pegLines = computed(() => {
+// Notes: group the "not a date / not a rating" warnings per folder and field, translate the rest.
+const noteLines = notes => {
   const groups = new Map(), lines = []
-  for (const e of (pegOut.value && pegOut.value.log) || []) {
-    if (e.kind === 'skip') { lines.push(t('warn.skip', { rel: e.rel || '.' })); continue }
+  let grouped = false
+  for (const e of notes || []) {
+    if (e.kind !== 'unparsed') { lines.push(reviewText(e)); continue }
+    grouped = true
     const k = e.rel + '\u0000' + e.key
     if (!groups.has(k)) groups.set(k, { rel: e.rel || '.', key: e.key, n: 0, ex: [] })
     const g = groups.get(k); g.n++
@@ -81,346 +62,280 @@ const pegLines = computed(() => {
     const kk = 'warn.unparsed_' + (g.key === 'release' || g.key === 'releasedate' ? 'release' : g.key === 'rating' ? 'rating' : 'other')
     lines.push(t(kk, { rel: g.rel, key: g.key, n: g.n, examples: g.ex.join('、') }))
   }
-  return lines
-})
-// backend errors arrive as "err.key|argument"
-const errText = e => {
-  const [k, ...rest] = String(e.message).split('|')
-  return t('status.error', { msg: k.startsWith('err.') ? t(k, { arg: rest.join('|') }) : e.message })
+  return { lines, grouped }
 }
 
 const native = () => window.pywebview && window.pywebview.api
-async function browse(target) {
+async function browse() {
   const p = await window.pywebview.api.pick_folder()
-  if (!p) return
-  if (target === 'src') path.value = p
-  else if (target === 'peg') peg.value.root = p
-  else if (target === 'bak') peg.value.backup = p
-  else exp.value.out = p
+  if (p) slot.value.path = p
 }
 
-async function openAbout() { if (!about.value) about.value = await api('/api/about'); showAbout.value = true }
-async function pegRun(kind) {
-  busy.value = true; msg.value = ''; pegOut.value = null
+// ---- status of each tab: unset / offline / idle / done
+async function refresh(src) {
+  const s = slots.value[src]
+  try { stat.value[src] = await api('/api/status', { source: src, path: s.path }) }
+  catch (e) { stat.value[src] = { state: 'unset' } }
+}
+const refreshAll = () => Promise.all(TABS.map(refresh))
+async function heartbeat() {                       // cheap: only checks whether each folder is still reachable
+  for (const src of TABS) {
+    const s = slots.value[src]
+    if (!s.path || (res.value[src] && res.value[src].kind === 'busy')) continue
+    try {
+      const d = await api('/api/status', { source: src, path: s.path, quick: true })
+      if (d.state === 'offline') stat.value[src] = { state: 'offline' }
+      else if (stat.value[src].state === 'offline') await refresh(src)    // the drive is back
+    } catch (e) { /* ignore */ }
+  }
+}
+
+// ---- operations
+const wantTrad = () => slot.value.trad && isZh.value
+async function convert() {
+  const src = tab.value, s = slots.value[src]
+  res.value[src] = { kind: 'busy' }
   try {
-    const d = await api('/api/pegasus/' + kind, { ...peg.value, trad: wantTrad() })
-    pegOut.value = d
-    const alongside = peg.value.mode !== 'replace'
-    msg.value = kind === 'convert' ? t(alongside ? 'status.converted_alongside' : 'status.converted')
-      : t(alongside ? 'status.undone' : 'status.restored', { n: d.restored })
-  } catch (e) { msg.value = errText(e) } finally { busy.value = false }
+    const d = await api('/api/convert', { source: src, path: s.path, trad: s.trad && isZh.value,
+      engine: s.engine || 'MAME', overrides: s.overrides || {} })
+    res.value[src] = { kind: 'ok', data: d }
+  } catch (e) { res.value[src] = { kind: 'error', text: errText(e) } }
+  await refresh(src)
+}
+async function remove() {
+  const src = tab.value, s = slots.value[src]
+  if (!window.confirm(t('act.confirm_delete', { path: s.path }))) return
+  res.value[src] = { kind: 'busy' }
+  try {
+    const d = await api('/api/delete', { source: src, path: s.path })
+    res.value[src] = { kind: 'info', text: t('st.deleted', { n: d.removed }) }
+  } catch (e) { res.value[src] = { kind: 'error', text: errText(e) } }
+  await refresh(src)
+}
+function setOverride(item, patch) {
+  Object.assign(item, patch)
+  const s = slots.value[tab.value]
+  s.overrides = { ...(s.overrides || {}), [item.src]: { platform: item.platform, hack: item.hack } }
 }
 
-// ---- settings: theme/language/window follow you automatically; the form is only stored by "Save as defaults"
+// ---- status card
+const pill = computed(() => {
+  if (r.value && r.value.kind === 'busy') return { cls: 'busy', text: t('st.busy') }
+  if (r.value && r.value.kind === 'error') return { cls: 'err', text: t('st.error') }
+  if (st.value.state === 'offline') return { cls: 'off', text: t('st.offline') }
+  if (st.value.state === 'done') return { cls: 'ok', text: t('st.done') }
+  return { cls: 'idle', text: t('st.ready') }
+})
+const statusLines = computed(() => {
+  const x = r.value
+  if (x && x.kind === 'busy') return []
+  if (x && x.kind === 'error') return [x.text]
+  if (st.value.state === 'offline') return [t('st.offline_text', { path: slot.value.path })]
+  const out = []
+  if (x && x.kind === 'info') out.push(x.text)
+  else if (x && x.kind === 'ok') {
+    out.push(t('st.summary', x.data.stats))
+    if (x.data.stats.skipped) out.push(t('st.skipped', { n: x.data.stats.skipped }))
+  } else out.push(st.value.state === 'unset' ? t('act.pick_first') : t('st.idle_text'))
+  return out
+})
+const noteInfo = computed(() => (r.value && r.value.kind === 'ok') ? noteLines(r.value.data.notes) : { lines: [], grouped: false })
+const items = computed(() => (r.value && r.value.kind === 'ok') ? r.value.data.items : [])
+
+// ---- settings: theme / language / tab / slots follow the user automatically
 function setTheme(v) { theme.value = v; document.documentElement.dataset.theme = v }
 function changeLang(code) { setLang(code); api('/api/settings', { lang: lang.value }).catch(() => {}) }
-watch(theme, () => { if (loaded.value) api('/api/settings', { theme: theme.value }).catch(() => {}) })
+let saveTimer = null
+watch([slots, tab, theme], () => {
+  if (!loaded.value) return
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => api('/api/settings', { slots: slots.value, tab: tab.value, theme: theme.value }).catch(() => {}), 150)
+}, { deep: true })
+let pathTimer = null
+watch(() => TABS.map(k => slots.value[k].path), (now, old) => {
+  if (!loaded.value) return
+  TABS.forEach((k, i) => { if (now[i] !== old[i]) res.value[k] = null })
+  clearTimeout(pathTimer)
+  pathTimer = setTimeout(refreshAll, 300)
+})
 
-const formState = () => ({ source: source.value, peg: peg.value, folder_path: path.value, engine: engine.value, export: exp.value, trad: trad.value, out_mode: outMode.value })
-function applyForm(d) {
-  d = d || {}
-  source.value = d.source || 'pegasus'
-  peg.value = { root: '', backup: '', mode: 'alongside', keep_pegasus: false, disable_original: false, ...(d.peg || {}) }
-  path.value = d.folder_path || ''
-  engine.value = d.engine || 'MAME'
-  exp.value = { out: '', roms: 'none', ...(d.export || {}) }
-  trad.value = !!d.trad
-  outMode.value = d.out_mode || 'inplace'
+function applySlots(s) {
+  for (const k of TABS) slots.value[k] = { ...slots.value[k], ...((s.slots || {})[k] || {}) }
+  tab.value = TABS.includes(s.tab) ? s.tab : 'pegasus'
 }
-async function saveDefaults() {
-  try { await api('/api/settings', { defaults: formState() }); msg.value = t('status.defaults_saved') }
-  catch (e) { msg.value = errText(e) }
+async function reloadSlots() {
+  applySlots(await api('/api/settings'))
+  res.value = { pegasus: null, emuelec: null, folder: null }
+  await refreshAll()
 }
-async function loadDefaults() {
-  try { applyForm((await api('/api/settings')).defaults); msg.value = t('status.defaults_loaded') }
-  catch (e) { msg.value = errText(e) }
-}
+async function openAbout() { about.value = await api('/api/about'); showAbout.value = true }
+function notify(key) { res.value[tab.value] = { kind: 'error', text: t(key) } }
 
 onMounted(async () => {
-  Object.assign(window, { setTheme, setLang: changeLang, openAbout, saveDefaults, loadDefaults })   // called from the native menu
-  sources.value = await api('/api/sources')
+  Object.assign(window, { setTheme, setLang: changeLang, openAbout, reloadSlots, notify })   // called from the native menu
   platforms.value = await api('/api/platforms')
   try {
     const s = await api('/api/settings')
     setTheme(s.theme || 'system')
     setLang(s.lang || detectLang())
-    applyForm(s.defaults)
-  } catch (e) { /* first run */ }
+    applySlots(s)
+  } catch (e) { setLang(detectLang()) }
   loaded.value = true
+  await refreshAll()
+  window.addEventListener('focus', refreshAll)
+  window.addEventListener('keydown', ev => { if (ev.key === 'Escape') showAbout.value = false })
+  setInterval(heartbeat, 4000)
 })
-const statusText = computed(() => msg.value || (busy.value ? t('status.busy') : t('status.ready')))
-
-const needsCheck = r => r.conf !== 'high' || r.notes.length || r.platform === 'Unsorted'
-
-const filtered = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  return rows.value.filter(r =>
-    (!q || r.title.toLowerCase().includes(q) || r.file.toLowerCase().includes(q)) &&
-    (!fPlat.value || r.platform === fPlat.value) &&
-    (fOnly.value === 'all' || (fOnly.value === 'check' ? needsCheck(r) && !r.edited : r.edited)))
-})
-const pages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE)))
-const shown = computed(() => filtered.value.slice(page.value * PAGE, (page.value + 1) * PAGE))
-watch([search, fPlat, fOnly], () => { page.value = 0 })
-
-const counts = computed(() => {
-  const c = {}
-  rows.value.forEach(r => {
-    if (!r.include) return
-    const k = r.platform + (r.hack ? ' hack' : '')
-    c[k] = (c[k] || 0) + 1
-  })
-  return Object.entries(c).sort()
-})
-const nCheck = computed(() => rows.value.filter(r => needsCheck(r) && !r.edited).length)
-
-async function load() {
-  const d = await api('/api/entries')
-  rows.value = d.rows; review.value = d.review; selected.value = new Set()
-}
-async function scan() {
-  busy.value = true; msg.value = ''; report.value = null
-  try {
-    const d = await api('/api/scan', { source: source.value, path: path.value, arcade_engine: engine.value })
-    await load()
-    msg.value = t('status.found', { n: d.count, check: nCheck.value })
-    fOnly.value = nCheck.value ? 'check' : 'all'
-  } catch (e) { msg.value = errText(e) } finally { busy.value = false }
-}
-async function update(ids, patch) {
-  await api('/api/entries/update', { ids, ...patch })
-  const set = new Set(ids)
-  rows.value.forEach(r => {
-    if (!set.has(r.id)) return
-    Object.assign(r, patch)
-    if (patch.platform !== undefined) { r.conf = 'high'; r.reason = 'manual'; r.notes = [] }
-    if (patch.platform !== undefined || patch.hack !== undefined || patch.title !== undefined) r.edited = true
-  })
-}
-const toggle = id => { const s = new Set(selected.value); s.has(id) ? s.delete(id) : s.add(id); selected.value = s }
-const allShown = computed(() => shown.value.length > 0 && shown.value.every(r => selected.value.has(r.id)))
-const toggleAll = () => {
-  const s = new Set(selected.value)
-  shown.value.forEach(r => allShown.value ? s.delete(r.id) : s.add(r.id)); selected.value = s
-}
-const selectAllFiltered = () => { selected.value = new Set(filtered.value.map(r => r.id)) }
-const bulk = async patch => { await update([...selected.value], patch); selected.value = new Set() }
-async function doExport() {
-  busy.value = true; msg.value = ''
-  try { report.value = await api('/api/export', { ...exp.value, mode: outMode.value, zh: wantTrad() ? 'trad' : 'keep' })
-    msg.value = outMode.value === 'inplace' ? t('status.written', { n: Object.keys(report.value.folders).length }) : t('status.exported') }
-  catch (e) { msg.value = errText(e) } finally { busy.value = false }
-}
 </script>
 
 <template>
-  <div class="shell"><main>
-  <section class="card">
-    <h2>{{ t('sec.source') }}</h2>
-    <div class="row">
-      <select v-model="source">
-        <option v-for="s in sources" :key="s.key" :value="s.key">{{ t('src.' + s.key) }}</option>
-      </select>
-    </div>
-    <template v-if="source !== 'pegasus'">
-      <div class="row">
-        <label><input type="radio" value="inplace" v-model="outMode" /> {{ t('out.mode_inplace') }}</label>
-        <label><input type="radio" value="new" v-model="outMode" /> {{ t('out.mode_new') }}</label>
-      </div>
-      <p class="msg">{{ introText }}</p>
-      <div class="row">
-        <input class="grow" v-model="path" :placeholder="t(source === 'emuelec' ? 'scan.path_ph_emuelec' : 'scan.path_ph_folder')" @keyup.enter="scan" />
-        <button v-if="native()" @click="browse('src')">{{ t('btn.browse') }}</button>
-      </div>
-      <div class="row">
-        <label v-if="source === 'folder'">{{ t('scan.engine_label') }}
-          <select v-model="engine" :title="t('scan.engine_tip')"><option>MAME</option><option>FBNeo</option></select>
-        </label>
-        <label v-if="isZh"><input type="checkbox" v-model="trad" /> {{ t('opt.trad') }}</label>
-        <button class="primary" :disabled="busy || !path" @click="scan">{{ t('scan.run') }}</button>
-        <button v-if="outMode === 'inplace'" :disabled="busy || !path" @click="removeInplace">{{ t('out.undo') }}</button>
-      </div>
-    </template>
+  <div class="app">
+    <nav class="tabs">
+      <button v-for="k in TABS" :key="k" class="tab" :class="{ on: tab === k }" :title="t('tab.' + k)" @click="tab = k">
+        <span class="tlabel">{{ t('tab.' + k) }}</span>
+        <span class="dot" :class="stat[k].state"></span>
+      </button>
+    </nav>
 
-    <template v-if="source === 'pegasus'">
-      <div class="row">
-        <label><input type="radio" value="alongside" v-model="peg.mode" /> {{ t('peg.mode_alongside') }}</label>
-        <label><input type="radio" value="replace" v-model="peg.mode" /> {{ t('peg.mode_replace') }}</label>
-      </div>
-      <p class="msg">{{ t(peg.mode === 'replace' ? 'peg.intro_replace' : 'peg.intro') }}</p>
-      <div class="row">
-        <input class="grow" v-model="peg.root" :placeholder="t('peg.root_ph')" />
-        <button v-if="native()" @click="browse('peg')">{{ t('btn.browse') }}</button>
-      </div>
-      <div class="row" v-if="peg.mode === 'replace'">
-        <input class="grow" v-model="peg.backup" :placeholder="t('peg.backup_ph')" />
-        <button v-if="native()" @click="browse('bak')">{{ t('btn.browse') }}</button>
-      </div>
-      <div class="row">
-        <label v-if="peg.mode === 'replace'"><input type="checkbox" v-model="peg.keep_pegasus" /> {{ t('peg.keep') }}</label>
-        <label v-else><input type="checkbox" v-model="peg.disable_original" /> {{ t('peg.disable') }}</label>
-        <label v-if="isZh"><input type="checkbox" v-model="trad" /> {{ t('opt.trad') }}</label>
-        <button class="primary" :disabled="busy || !pegReady" @click="pegRun('convert')">{{ t(peg.mode === 'replace' ? 'peg.convert' : 'peg.convert_alongside') }}</button>
-        <button :disabled="busy || !pegReady" @click="pegRun('restore')">{{ t(peg.mode === 'replace' ? 'peg.restore' : 'peg.undo') }}</button>
-      </div>
-      <div v-if="pegOut && pegOut.stats" class="report">
-        {{ t('peg.summary', pegOut.stats) }}
-        <div v-if="pegLines.length" class="msg">{{ t('peg.warn_hint') }}</div>
-        <div v-for="(l, i) in pegLines" :key="i" class="note">{{ l }}</div>
-      </div>
-    </template>
-  </section>
+    <main class="pane">
+      <section class="card">
+        <h2>{{ t('card.source') }}</h2>
+        <div class="row">
+          <input class="grow" v-model="slot.path" :placeholder="t('src.ph_' + tab)" />
+          <button v-if="native()" @click="browse">{{ t('src.browse') }}</button>
+        </div>
+        <p class="hint">{{ t('src.intro_' + tab) }}</p>
+        <p class="hint" v-if="tab !== 'folder' && st.folders !== undefined">{{ t('src.found_' + tab, { n: st.folders }) }}</p>
+      </section>
 
-  <template v-if="rows.length && source !== 'pegasus'">
-    <section class="card">
-      <h2>{{ t('sec.result') }} <small>{{ t('res.title_count', { n: rows.length, counts: counts.map(([k, n]) => k + ' ' + n).join(', ') }) }}</small></h2>
-      <div class="row">
-        <input v-model="search" :placeholder="t('res.search_ph')" />
-        <select v-model="fPlat">
-          <option value="">{{ t('res.all_platforms') }}</option>
-          <option v-for="p in platforms" :key="p.key" :value="p.key">{{ p.key }}</option>
-        </select>
-        <select v-model="fOnly">
-          <option value="all">{{ t('res.f_all') }}</option>
-          <option value="check">{{ t('res.f_check', { n: nCheck }) }}</option>
-          <option value="edited">{{ t('res.f_edited') }}</option>
-        </select>
-        <button @click="showReview = !showReview" v-if="review.length">{{ t('res.notes', { n: review.length }) }}</button>
-      </div>
-      <pre v-if="showReview" class="review">{{ review.map(reviewText).join('\n') }}</pre>
+      <section class="card">
+        <h2>{{ t('card.settings') }}</h2>
+        <div class="row" v-if="isZh || tab === 'folder'">
+          <label v-if="isZh"><input type="checkbox" v-model="slot.trad" /> {{ t('opt.trad') }}</label>
+          <label v-if="tab === 'folder'" :title="t('opt.engine_tip')">{{ t('opt.engine') }}
+            <select v-model="slot.engine"><option>MAME</option><option>FBNeo</option></select>
+          </label>
+        </div>
+        <div class="row">
+          <span v-if="st.state === 'offline'" class="pill off">{{ t('st.offline') }}</span>
+          <button v-if="st.state === 'offline'" @click="native() ? browse() : null">{{ t('act.repick') }}</button>
+          <button v-if="st.state === 'idle'" class="primary" :disabled="busy" @click="convert">{{ t('act.start') }}</button>
+          <template v-if="st.state === 'done'">
+            <button class="primary" :disabled="busy" @click="convert">{{ t('act.redo') }}</button>
+            <button class="danger" :disabled="busy" @click="remove">{{ t('act.delete') }}</button>
+          </template>
+          <span v-if="st.state === 'unset'" class="hint">{{ t('act.pick_first') }}</span>
+        </div>
+      </section>
 
-      <div class="row bulk" :class="{ on: selected.size }">
-        <span>{{ t('res.selected', { n: selected.size }) }}</span>
-        <button class="link" @click="selectAllFiltered">{{ t('res.select_all', { n: filtered.length }) }}</button>
-        <select v-model="bulkPlat">
-          <option value="">{{ t('res.set_platform_ph') }}</option>
-          <option v-for="p in platforms" :key="p.key" :value="p.key">{{ p.key }} ({{ p.collection }})</option>
-        </select>
-        <button :disabled="!selected.size || !bulkPlat" @click="bulk({ platform: bulkPlat })">{{ t('res.apply_platform') }}</button>
-        <button :disabled="!selected.size" @click="bulk({ hack: true })">{{ t('res.set_hack') }}</button>
-        <button :disabled="!selected.size" @click="bulk({ hack: false })">{{ t('res.unset_hack') }}</button>
-        <button :disabled="!selected.size" @click="bulk({ include: false })">{{ t('res.exclude') }}</button>
-        <button :disabled="!selected.size" @click="bulk({ include: true })">{{ t('res.include') }}</button>
-      </div>
+      <section class="card grow-card">
+        <h2>{{ t('card.status') }}</h2>
+        <div class="row"><span class="pill" :class="pill.cls">{{ pill.text }}</span></div>
+        <p class="line" v-for="(l, i) in statusLines" :key="i">{{ l }}</p>
 
-      <div class="tablewrap">
-        <table>
-          <thead><tr>
-            <th><input type="checkbox" :checked="allShown" @change="toggleAll" /></th>
-            <th>{{ t('col.title') }}</th><th>{{ t('col.file') }}</th><th>{{ t('col.platform') }}</th>
-            <th>{{ t('col.hack') }}</th><th>{{ t('col.conf') }}</th><th>{{ t('col.reason') }}</th>
-          </tr></thead>
-          <tbody>
-            <tr v-for="r in shown" :key="r.id" :class="{ off: !r.include, warn: needsCheck(r) && !r.edited, sel: selected.has(r.id) }">
-              <td><input type="checkbox" :checked="selected.has(r.id)" @change="toggle(r.id)" /></td>
-              <td><input class="title" :value="r.title" @change="update([r.id], { title: $event.target.value })" /></td>
-              <td class="file" :title="r.src">{{ r.file }}<span v-if="r.archive" class="tag">{{ t('res.archive') }}</span></td>
-              <td>
-                <select :value="r.platform" @change="update([r.id], { platform: $event.target.value })">
-                  <option v-for="p in platforms" :key="p.key" :value="p.key">{{ p.key }}</option>
-                  <option v-if="!platforms.some(p => p.key === r.platform)" :value="r.platform">{{ r.platform }}</option>
-                </select>
-              </td>
-              <td><input type="checkbox" :checked="r.hack" @change="update([r.id], { hack: $event.target.checked })" /></td>
-              <td><span class="badge" :class="r.conf">{{ t('conf.' + r.conf) }}</span></td>
-              <td class="why">{{ why(r.reason) }}<span v-for="n in r.notes" :key="n" class="note"> ⚠ {{ why(n) }}</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p v-if="!filtered.length" class="msg">{{ t('res.empty') }}</p>
-      <div class="row pager">
-        <button :disabled="page === 0" @click="page--">{{ t('res.prev') }}</button>
-        <span>{{ t('res.page', { page: page + 1, pages, n: filtered.length }) }}</span>
-        <button :disabled="page + 1 >= pages" @click="page++">{{ t('res.next') }}</button>
-      </div>
-    </section>
+        <template v-if="noteInfo.lines.length">
+          <h3>{{ t('st.notes_title', { n: noteInfo.lines.length }) }}</h3>
+          <p v-if="noteInfo.grouped" class="hint">{{ t('st.warn_hint') }}</p>
+          <div class="box"><div v-for="(l, i) in noteInfo.lines" :key="i" class="note">{{ l }}</div></div>
+        </template>
 
-    <section class="card">
-      <h2>{{ t('sec.export') }}</h2>
-      <div class="row" v-if="outMode === 'inplace'">
-        <button class="primary" :disabled="busy" @click="doExport">{{ t('out.write') }}</button>
-      </div>
-      <div class="row" v-else>
-        <input class="grow" v-model="exp.out" :placeholder="t('exp.out_ph')" />
-        <button v-if="native()" @click="browse('out')">{{ t('btn.browse') }}</button>
-        <select v-model="exp.roms">
-          <option value="none">{{ t('exp.roms_none') }}</option>
-          <option value="copy">{{ t('exp.roms_copy') }}</option>
-          <option value="link">{{ t('exp.roms_link') }}</option>
-          <option value="move">{{ t('exp.roms_move') }}</option>
-        </select>
-        <button class="primary" :disabled="busy || !exp.out" @click="doExport">{{ t('exp.run') }}</button>
-      </div>
-      <div v-if="report" class="report">
-        <div v-for="(n, f) in report.folders" :key="f">{{ t('exp.folder_line', { folder: f, n }) }}</div>
-        <div v-for="(w, i) in report.warnings" :key="i" class="note">⚠ {{ reviewText(w) }}</div>
-      </div>
-    </section>
-  </template>
-  </main>
-  <footer class="statusbar">
-    <span class="st-msg" :title="statusText">{{ statusText }}</span>
-    <span v-if="rows.length && source !== 'pegasus'">{{ t('res.count', { n: rows.length }) }}</span>
-  </footer></div>
+        <template v-if="items.length">
+          <h3>{{ t('st.check_title', { n: items.length + r.data.more }) }}</h3>
+          <p class="hint">{{ t('st.check_hint') }}</p>
+          <div class="box tall">
+            <table>
+              <thead><tr><th>{{ t('col.file') }}</th><th>{{ t('col.platform') }}</th><th>{{ t('col.hack') }}</th><th>{{ t('col.reason') }}</th></tr></thead>
+              <tbody>
+                <tr v-for="it in items" :key="it.src">
+                  <td class="file" :title="it.src">{{ it.file }}</td>
+                  <td>
+                    <select :value="it.platform" @change="setOverride(it, { platform: $event.target.value })">
+                      <option v-for="p in platforms" :key="p.key" :value="p.key">{{ p.key }}</option>
+                    </select>
+                  </td>
+                  <td><input type="checkbox" :checked="it.hack" @change="setOverride(it, { hack: $event.target.checked })" /></td>
+                  <td class="why">{{ why(it.reason) }}<span v-for="n in it.notes" :key="n" class="note"> ⚠ {{ why(n) }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-if="r.data.more" class="hint">{{ t('st.more', { n: r.data.more }) }}</p>
+        </template>
+      </section>
+    </main>
+  </div>
 
-  <div v-if="showAbout" class="modal" @click.self="showAbout = false">
+  <div v-if="showAbout && about" class="modal" @click.self="showAbout = false">
     <div class="dialog">
-      <div class="dhead"><img class="logo" src="/ponia_mark.svg" alt="" /><b>PoniaMDM {{ about.version }}</b>
-        <button @click="showAbout = false">{{ t('about.close') }}</button></div>
-      <p>{{ t('about.text') }}</p>
-      <pre>{{ about.notice }}</pre>
-      <details><summary>{{ t('about.license') }}</summary><pre>{{ about.license }}</pre></details>
+      <div class="dtitle"><span>{{ t('about.title') }}</span><button class="x" :aria-label="t('about.close')" @click="showAbout = false">×</button></div>
+      <div class="dbody">
+        <img class="logo" src="/ponia_mark.svg" alt="Ponia" />
+        <div class="info">
+          <div class="name">PoniaMDM {{ about.version }}</div>
+          <div class="arch">x64</div>
+          <div class="small" v-if="about.release">{{ t('about.release', { date: about.release }) }}</div>
+          <div class="small">© 2026 Equuleus Works</div>
+          <div class="small">GPL-3.0-or-later</div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style>
-:root { --bg:#f3f3f3; --card:#fff; --fg:#1b1b1b; --mut:#5f5f5f; --line:#d9d9d9; --acc:#0067c0; --warn:#fff4ce; --sel:#e5f1fb; }
-@media (prefers-color-scheme: dark) { :root { --bg:#202020; --card:#2b2b2b; --fg:#f3f3f3; --mut:#a6a6a6; --line:#404040; --acc:#4cc2ff; --warn:#433519; --sel:#1e3a52; } }
-:root[data-theme="light"] { --bg:#f3f3f3; --card:#fff; --fg:#1b1b1b; --mut:#5f5f5f; --line:#d9d9d9; --acc:#0067c0; --warn:#fff4ce; --sel:#e5f1fb; }
-:root[data-theme="dark"] { --bg:#202020; --card:#2b2b2b; --fg:#f3f3f3; --mut:#a6a6a6; --line:#404040; --acc:#4cc2ff; --warn:#433519; --sel:#1e3a52; }
+:root { --bg:#f3f3f3; --card:#fff; --fg:#1b1b1b; --mut:#5f5f5f; --line:#d9d9d9; --acc:#0067c0; --warn:#fff4ce; --sel:#e5f1fb; --ok:#2e7d32; --off:#b26a00; --err:#b3261e; }
+@media (prefers-color-scheme: dark) { :root { --bg:#202020; --card:#2b2b2b; --fg:#f3f3f3; --mut:#a6a6a6; --line:#404040; --acc:#4cc2ff; --warn:#433519; --sel:#1e3a52; --ok:#7bc47f; --off:#ffb454; --err:#ff8a80; } }
+:root[data-theme="light"] { --bg:#f3f3f3; --card:#fff; --fg:#1b1b1b; --mut:#5f5f5f; --line:#d9d9d9; --acc:#0067c0; --warn:#fff4ce; --sel:#e5f1fb; --ok:#2e7d32; --off:#b26a00; --err:#b3261e; }
+:root[data-theme="dark"] { --bg:#202020; --card:#2b2b2b; --fg:#f3f3f3; --mut:#a6a6a6; --line:#404040; --acc:#4cc2ff; --warn:#433519; --sel:#1e3a52; --ok:#7bc47f; --off:#ffb454; --err:#ff8a80; }
 * { box-sizing: border-box }
 html, body, #app { height:100%; margin:0 }
 body { background:var(--bg); color:var(--fg); overflow:hidden; user-select:none;
   font:13px/1.45 "Segoe UI Variable Text","Segoe UI","Microsoft JhengHei UI","Microsoft YaHei UI","Yu Gothic UI","Malgun Gothic",sans-serif }
-input[type=text], input:not([type]), textarea, pre, .file, .why { user-select:text }
-.shell { display:flex; flex-direction:column; height:100vh }
-main { flex:1; overflow:auto; padding:10px 12px 4px }
-.card { background:var(--card); border:1px solid var(--line); border-radius:6px; margin:0 0 10px; padding:10px 12px }
-h2 { font-size:13px; font-weight:600; margin:0 0 6px } h2 small { color:var(--mut); font-weight:400 }
-label { display:inline-flex; align-items:center; gap:6px }
-input[type=radio], input[type=checkbox] { margin:0; flex:none }
+input[type=text], input:not([type]), textarea, pre, .file, .why, .line, .note { user-select:text }
+
+.app { display:flex; height:100vh }
+.tabs { width:188px; flex:none; padding:10px 8px; border-right:1px solid var(--line); background:var(--card); display:flex; flex-direction:column; gap:4px }
+.tab { display:flex; align-items:center; gap:8px; width:100%; height:auto; min-height:44px; padding:6px 10px; text-align:left; border:0; border-radius:8px; background:none; font-size:13px; line-height:1.25 }
+.tab:hover { background:var(--sel) }
+.tab.on { background:var(--sel); color:var(--acc); font-weight:600 }
+.tlabel { flex:1; min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere }
+.dot { width:9px; height:9px; border-radius:50%; flex:none; background:var(--line) }
+.dot.done { background:var(--ok) } .dot.offline { background:var(--off) }
+
+.pane { flex:1; min-width:0; overflow:auto; padding:12px; display:flex; flex-direction:column; gap:10px }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px }
+.grow-card { flex:1; min-height:140px }
+h2 { font-size:12px; font-weight:600; margin:0 0 6px; color:var(--mut) }
+h3 { font-size:12px; font-weight:600; margin:10px 0 2px }
 .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:6px 0 }
-.grow { flex:1; min-width:200px }
+.grow { flex:1; min-width:160px }
+label { display:inline-flex; align-items:center; gap:6px }
+input[type=radio], input[type=checkbox] { margin:0; flex:none; width:14px; height:14px; padding:0 }
 input, select, button { font:inherit; color:var(--fg); background:var(--card); border:1px solid var(--line); border-radius:4px; height:28px; padding:2px 8px }
-input[type=checkbox] { width:14px; height:14px; padding:0 }
 button { cursor:pointer; border-bottom-color:#b5b5b5 } button:disabled { opacity:.45; cursor:default }
 button:hover:not(:disabled) { background:var(--sel) }
 button.primary { background:var(--acc); border-color:var(--acc); color:#fff; font-weight:600 }
 button.primary:hover:not(:disabled) { filter:brightness(1.1); background:var(--acc) }
-button.link { height:auto; border:0; background:none; color:var(--acc); padding:0 }
-button.link:hover { text-decoration:underline; background:none }
-.msg { margin:6px 0 0; color:var(--mut) }
-.bulk { padding:6px 8px; border:1px dashed var(--line); border-radius:6px } .bulk.on { background:var(--sel) }
-.tablewrap { max-height:calc(100vh - 330px); min-height:160px; overflow:auto; border:1px solid var(--line); border-radius:6px }
+button.danger { color:var(--err); border-color:var(--err) }
+.hint { color:var(--mut); margin:4px 0 0; font-size:12px }
+.line { margin:4px 0 }
+.pill { display:inline-flex; align-items:center; padding:1px 10px; border-radius:12px; font-size:12px; border:1px solid var(--line); color:var(--mut) }
+.pill.ok { color:var(--ok); border-color:var(--ok) } .pill.off { color:var(--off); border-color:var(--off) }
+.pill.err { color:var(--err); border-color:var(--err) } .pill.busy { color:var(--acc); border-color:var(--acc) }
+.box { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:6px 10px; max-height:180px; overflow:auto; font-size:12px }
+.box.tall { max-height:320px; padding:0 }
+.note { color:#c0560f; margin:2px 0 } .why { color:var(--mut); font-size:12px }
 table { border-collapse:collapse; width:100% }
-th { position:sticky; top:0; background:var(--card); text-align:left; border-bottom:1px solid var(--line); padding:5px 8px; z-index:1 }
+th { position:sticky; top:0; background:var(--card); text-align:left; border-bottom:1px solid var(--line); padding:4px 8px; z-index:1; font-weight:600 }
 td { padding:2px 8px; border-bottom:1px solid var(--line); vertical-align:middle }
-tr.warn { background:var(--warn) } tr.sel { background:var(--sel) } tr.off td { opacity:.4 }
-input.title { width:100%; min-width:160px; height:24px; border-color:transparent; background:transparent } input.title:focus { border-color:var(--acc) }
-.file { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--mut) }
-.why { color:var(--mut); font-size:12px } .note { color:#c0560f }
-.tag { margin-left:6px; font-size:11px; border:1px solid var(--line); border-radius:3px; padding:0 4px }
-.badge { padding:1px 8px; border-radius:10px; font-size:12px; color:#fff; background:#7a8794 }
-.badge.high { background:#2e8b57 } .badge.medium { background:#c98a0b } .badge.low { background:#c0560f } .badge.none { background:#b3261e }
-.review, .report { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px 10px; max-height:200px; overflow:auto; font-size:12px; white-space:pre-wrap }
-.pager { justify-content:center }
-.statusbar { display:flex; gap:18px; align-items:center; height:24px; padding:0 12px; border-top:1px solid var(--line); background:var(--card); color:var(--mut); font-size:12px; flex:none }
-.st-msg { flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--fg) }
+.file { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+
 .modal { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; z-index:10 }
-.dialog { background:var(--card); border:1px solid var(--line); border-radius:8px; width:min(720px, 94vw); max-height:86vh; overflow:auto; padding:14px 18px }
-.dhead { display:flex; align-items:center; gap:10px } .dhead b { flex:1 }
-.dialog pre { white-space:pre-wrap; font-size:12px; background:var(--bg); padding:8px 10px; border-radius:6px }
-.dialog .logo { width:28px; height:28px }
+.dialog { background:var(--card); border:1px solid var(--line); border-radius:8px; width:min(520px, 94vw); overflow:hidden }
+.dtitle { display:flex; align-items:center; justify-content:space-between; padding:8px 8px 8px 14px; font-size:12px; border-bottom:1px solid var(--line) }
+.x { border:0; background:none; font-size:20px; line-height:1; height:28px; width:34px; padding:0 }
+.dbody { display:flex; align-items:center; gap:26px; padding:24px 28px }
+.logo { width:128px; height:128px; flex:none }
+.info { flex:1; text-align:center }
+.name { font-size:20px; font-weight:700 } .arch { font-size:15px; font-weight:700; margin-bottom:10px } .small { font-size:13px }
 </style>

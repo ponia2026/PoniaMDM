@@ -61,7 +61,6 @@ def _media(sysdir, g):
 
 class EmuelecConverter(Converter):
     key = "emuelec"
-    label = "EmuELEC (gamelist.xml)"
 
     def build(self, src, arcade_engine="MAME", **_):
         src = os.path.abspath(src)

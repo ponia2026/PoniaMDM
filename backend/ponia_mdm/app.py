@@ -6,6 +6,7 @@ Native menu bar and window icon like an ordinary Windows program. Falls back to
 the default browser when no native window is available. Binds to 127.0.0.1 only,
 on a free port, unless --lan is given.
 """
+import json
 import os
 import socket
 import sys
@@ -18,7 +19,21 @@ import uvicorn
 from . import settings
 from .main import app
 
-HOMEPAGE = "https://github.com/ponia2026/PoniaMDM"
+REPO = "https://github.com/ponia2026/PoniaMDM"
+HOMEPAGE = REPO
+HELP_URL = REPO + "#readme"
+COPYRIGHT_URL = REPO + "/blob/main/NOTICE.md"
+
+LANGUAGES = [("en", "English"), ("zh-CN", "简体中文"), ("zh-TW", "繁體中文"), ("es", "Español"),
+             ("pt", "Português"), ("ru", "Русский"), ("ja", "日本語"), ("fr", "Français"),
+             ("de", "Deutsch")]
+# Native menu text; languages without an entry fall back to zh-TW.
+MENU_TEXT = {"zh-TW": {
+    "file": "檔案(F)", "save_file": "保存檔案", "open_file": "讀取檔案", "exit": "離開(X)",
+    "language": "語言(L)", "theme": "主題(T)", "system": "跟隨系統", "light": "淺色", "dark": "深色",
+    "help": "說明(H)", "howto": "幫助", "home": "首頁", "copyright": "版權", "about": "關於",
+}}
+FILE_TYPES = ("PoniaMDM settings (*.json)",)
 
 
 class Api:
@@ -28,6 +43,43 @@ class Api:
         import webview
         res = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
         return res[0] if res else None
+
+
+def _first(res):
+    if not res:
+        return None
+    return res if isinstance(res, str) else res[0]
+
+
+def save_file(window):
+    """File > Save file: write the per-source slots (latest folder and options each) to a file."""
+    import webview
+    p = _first(window.create_file_dialog(webview.SAVE_DIALOG, save_filename="PoniaMDM.slots.json",
+                                         file_types=FILE_TYPES))
+    if not p:
+        return
+    s = settings.load()
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump({"app": "PoniaMDM", "version": 1, "tab": s["tab"], "slots": s["slots"]},
+                  f, ensure_ascii=False, indent=1)
+
+
+def open_file(window):
+    """File > Open file: replace the slots with the ones stored in a file."""
+    import webview
+    p = _first(window.create_file_dialog(webview.OPEN_DIALOG, file_types=FILE_TYPES))
+    if not p:
+        return
+    try:
+        with open(p, encoding="utf-8") as f:
+            data = json.load(f)
+        if data.get("app") != "PoniaMDM" or not isinstance(data.get("slots"), dict):
+            raise ValueError
+    except (OSError, ValueError):
+        window.evaluate_js("window.notify('file.invalid')")
+        return
+    settings.save({"slots": data["slots"], "tab": data.get("tab", "pegasus")})
+    window.evaluate_js("window.reloadSlots()")
 
 
 def _resource(name):
@@ -47,29 +99,20 @@ def _free_port(preferred=8765):
             s.close()
 
 
-LANGUAGES = [("en", "English"), ("zh-CN", "简体中文"), ("zh-TW", "繁體中文"), ("es", "Español"),
-             ("pt", "Português"), ("ru", "Русский"), ("ja", "日本語"), ("fr", "Français"),
-             ("de", "Deutsch")]
-# Native menu text; languages without an entry fall back to zh-TW.
-# (A native menu cannot be rebuilt while running, so a language change shows in the menu on next start.)
-MENU_TEXT = {"zh-TW": {
-    "file": "檔案(F)", "save_defaults": "保存為預設值", "load_defaults": "讀取預設值", "exit": "離開(X)",
-    "language": "語言(L)", "theme": "主題(T)", "system": "跟隨系統", "light": "淺色", "dark": "深色",
-    "help": "說明(H)", "home": "首頁", "about": "關於",
-}}
-
-
 def _menu(window):
     from webview.menu import Menu, MenuAction, MenuSeparator
 
     def js(code):
         return lambda: window.evaluate_js(code)
 
+    def link(url):
+        return lambda: webbrowser.open(url)
+
     m = MENU_TEXT.get(settings.load().get("lang"), MENU_TEXT["zh-TW"])
     return [
         Menu(m["file"], [
-            MenuAction(m["save_defaults"], js("window.saveDefaults()")),
-            MenuAction(m["load_defaults"], js("window.loadDefaults()")),
+            MenuAction(m["save_file"], lambda: save_file(window)),
+            MenuAction(m["open_file"], lambda: open_file(window)),
             MenuSeparator(),
             MenuAction(m["exit"], window.destroy),
         ]),
@@ -80,7 +123,10 @@ def _menu(window):
             MenuAction(m["dark"], js("window.setTheme('dark')")),
         ]),
         Menu(m["help"], [
-            MenuAction(m["home"], lambda: webbrowser.open(HOMEPAGE)),
+            MenuAction(m["howto"], link(HELP_URL)),
+            MenuAction(m["home"], link(HOMEPAGE)),
+            MenuAction(m["copyright"], link(COPYRIGHT_URL)),
+            MenuSeparator(),
             MenuAction(m["about"], js("window.openAbout()")),
         ]),
     ]

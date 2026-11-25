@@ -5,7 +5,7 @@
 Copyright (C) 2026 Equuleus Works.
 
 Licensed under the GNU General Public License, version 3 or (at your option) any later version
-(`SPDX-License-Identifier: GPL-3.0-or-later`). The full text is in `LICENSE.md`.
+(`SPDX-License-Identifier: GPL-3.0-or-later`). The full license text is in `LICENSE.md`.
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
 without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

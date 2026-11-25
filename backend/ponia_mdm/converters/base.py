@@ -1,20 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Equuleus Works
-import sqlite3
 
 
 class Converter:
-    """A source reader.
-
-    build(src, ...) -> (entries, review): the games found, plus lines for a human to check.
-    import_from(src, con) loads the SQLite model (only the Pegasus converter uses it so far).
-    """
+    """A source reader: build(src) -> (entries, review), where review lists things to check."""
 
     key = ""
-    label = ""
 
-    def import_from(self, src: str, con: sqlite3.Connection) -> int:
-        raise NotImplementedError
-
-    def build(self, src: str, **opts):
+    def build(self, src, **opts):
         raise NotImplementedError

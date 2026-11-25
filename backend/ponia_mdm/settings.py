@@ -10,9 +10,10 @@ import os
 import sys
 
 NAME = "PoniaMDM.settings.json"
-# theme / lang / window follow the user automatically; "defaults" is the saved form
-# (File > Save as defaults) that the app restores on start and on File > Load defaults.
-DEFAULTS = {"theme": "system", "lang": "", "defaults": {},          # lang "" = follow the OS
+# theme / lang / window / tab follow the user automatically. `slots` holds, per source
+# (pegasus / emuelec / folder), the latest data folder and options; it is also what
+# File > Save file / Open file exchange.
+DEFAULTS = {"theme": "system", "lang": "", "tab": "pegasus", "slots": {},      # lang "" = follow the OS
             "window": {"width": 1100, "height": 700}}
 
 
