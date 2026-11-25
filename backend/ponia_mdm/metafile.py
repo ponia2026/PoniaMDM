@@ -36,9 +36,9 @@ def parse(text: str):
     return sections
 
 
-def dump(sections) -> str:
+def dump(sections, header=None) -> str:
     """Serialize sections back to text with CRLF line endings."""
-    out = []
+    out = [header, ""] if header else []
     for _kind, pairs in sections:
         for k, v in pairs:
             lines = v.split("\n")
