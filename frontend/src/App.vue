@@ -354,10 +354,10 @@ td { padding:2px 8px; border-bottom:1px solid var(--line); vertical-align:middle
 .file { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
 
 .modal { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; z-index:10 }
-.dialog { background:var(--card); border:1px solid var(--line); border-radius:8px; width:min(380px, 94vw); overflow:hidden }
+.dialog { background:var(--card); border:1px solid var(--line); border-radius:8px; width:min(640px, 94vw); overflow:hidden }
 .dtitle { display:flex; align-items:center; justify-content:space-between; padding:8px 8px 8px 14px; font-size:12px; border-bottom:1px solid var(--line) }
 .x { border:0; background:none; font-size:20px; line-height:1; height:28px; width:34px; padding:0 }
-.dbody { display:flex; align-items:center; justify-content:center; gap:16px; padding:18px 22px }
+.dbody { display:flex; align-items:center; justify-content:center; gap:32px; padding:18px 22px }
 .logo { width:96px; height:96px; flex:none }
 .info { text-align:center }
 .name { font-size:20px; font-weight:700 } .arch { font-size:15px; font-weight:700; margin-bottom:10px } .small { font-size:13px }

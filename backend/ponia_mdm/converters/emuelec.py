@@ -98,6 +98,9 @@ class EmuelecConverter(Converter):
                                 file=rel.replace(os.sep, "/"), src=full, media=_media(sysdir, g),
                                 archive=detect.ext_of(rel) in P.ARCHIVE_EXT,
                                 conf="high", reason="emuelec_list", base_dir=sysdir)
+                    stem = detect.stem_of(os.path.basename(rel)).lower()
+                    if ent.title.lstrip().upper().startswith("[BIOS]") or (plat in ("MAME", "FBNeo") and stem in detect.ARCADE_BIOS):
+                        ent.bios = True             # a system or device romset, not a game: left out of the output
                     pairs = {
                         "developer": _text(g, "developer"), "publisher": _text(g, "publisher"),
                         "genre": _text(g, "genre"), "players": _players(_text(g, "players")),

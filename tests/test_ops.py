@@ -41,3 +41,19 @@ def test_folder_cycle_with_override(tmp_path):
     assert ops.status("folder", root)["state"] == "done"
     assert ops.delete("folder", root) == 1
     assert ops.status("folder", root)["state"] == "idle"
+
+
+def test_emuelec_bios_entries_are_left_out(tmp_path):
+    d = tmp_path / "mame"
+    d.mkdir()
+    for n in ("neogeo.zip", "pgm.zip", "kof98.zip"):
+        (d / n).write_bytes(b"x")
+    gl = ("<gameList>"
+          "<game><path>./neogeo.zip</path><name>[BIOS] Neo-Geo</name></game>"
+          "<game><path>./pgm.zip</path><name>PGM</name></game>"
+          "<game><path>./kof98.zip</path><name>KOF 98</name></game>"
+          "</gameList>")
+    (d / "gamelist.xml").write_bytes(gl.encode("utf-8"))
+    ops.convert("emuelec", str(tmp_path))
+    out = (d / "metadata.ponia.txt").read_text(encoding="utf-8")
+    assert "kof98.zip" in out and "neogeo.zip" not in out and "pgm.zip" not in out

@@ -19,10 +19,9 @@ import uvicorn
 from . import settings
 from .main import app
 
-REPO = "https://github.com/ponia2026/PoniaMDM"
-HOMEPAGE = REPO
-HELP_URL = REPO + "/blob/main/docs/help.md"
-COPYRIGHT_URL = REPO + "/blob/main/NOTICE.md"
+HOMEPAGE = "https://ponia.org/product/poniamdm/"
+HELP_URL = "https://ponia.org/docs/poniamdm/"
+COPYRIGHT_URL = "https://ponia.org/about/poniamdm-notice/"
 
 LANGUAGES = [("en", "English"), ("zh-CN", "简体中文"), ("zh-TW", "繁體中文"), ("es", "Español"),
              ("pt", "Português"), ("ru", "Русский"), ("ja", "日本語"), ("fr", "Français"),
