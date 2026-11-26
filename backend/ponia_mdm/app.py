@@ -27,12 +27,47 @@ COPYRIGHT_URL = REPO + "/blob/main/NOTICE.md"
 LANGUAGES = [("en", "English"), ("zh-CN", "简体中文"), ("zh-TW", "繁體中文"), ("es", "Español"),
              ("pt", "Português"), ("ru", "Русский"), ("ja", "日本語"), ("fr", "Français"),
              ("de", "Deutsch")]
-# Native menu text; languages without an entry fall back to zh-TW.
-MENU_TEXT = {"zh-TW": {
-    "file": "檔案(F)", "save_file": "保存檔案", "open_file": "讀取檔案", "exit": "離開(X)",
-    "language": "語言(L)", "theme": "主題(T)", "system": "跟隨系統", "light": "淺色", "dark": "深色",
-    "help": "說明(H)", "howto": "幫助", "home": "首頁", "copyright": "版權", "about": "關於",
-}}
+# Native menu text. A native menu cannot be rebuilt while running, so a language change shows in the menu on next start.
+_K = ("file", "save_file", "open_file", "exit", "language", "theme", "system", "light", "dark",
+      "help", "howto", "home", "copyright", "about")
+MENU_TEXT = {code: dict(zip(_K, values)) for code, values in {
+    "zh-TW": ("檔案(F)", "保存檔案", "讀取檔案", "離開(X)", "語言(L)", "主題(T)", "跟隨系統", "淺色", "深色",
+              "說明(H)", "幫助", "首頁", "版權", "關於"),
+    "zh-CN": ("文件(F)", "保存文件", "读取文件", "退出(X)", "语言(L)", "主题(T)", "跟随系统", "浅色", "深色",
+              "帮助(H)", "使用说明", "首页", "版权", "关于"),
+    "en": ("File", "Save file", "Open file", "Exit", "Language", "Theme", "Follow system", "Light", "Dark",
+           "Help", "How to use", "Home", "Copyright", "About"),
+    "es": ("Archivo", "Guardar archivo", "Abrir archivo", "Salir", "Idioma", "Tema", "Seguir el sistema", "Claro", "Oscuro",
+           "Ayuda", "Cómo usarlo", "Página principal", "Derechos de autor", "Acerca de"),
+    "pt": ("Arquivo", "Salvar arquivo", "Abrir arquivo", "Sair", "Idioma", "Tema", "Seguir o sistema", "Claro", "Escuro",
+           "Ajuda", "Como usar", "Página inicial", "Direitos autorais", "Sobre"),
+    "ru": ("Файл", "Сохранить файл", "Открыть файл", "Выход", "Язык", "Тема", "Как в системе", "Светлая", "Тёмная",
+           "Справка", "Как пользоваться", "Главная страница", "Авторские права", "О программе"),
+    "ja": ("ファイル", "ファイルを保存", "ファイルを開く", "終了", "言語", "テーマ", "システムに合わせる", "ライト", "ダーク",
+           "ヘルプ", "使い方", "ホームページ", "著作権", "バージョン情報"),
+    "fr": ("Fichier", "Enregistrer le fichier", "Ouvrir un fichier", "Quitter", "Langue", "Thème", "Suivre le système", "Clair", "Sombre",
+           "Aide", "Mode d’emploi", "Page d’accueil", "Droits d’auteur", "À propos"),
+    "de": ("Datei", "Datei speichern", "Datei öffnen", "Beenden", "Sprache", "Design", "System folgen", "Hell", "Dunkel",
+           "Hilfe", "Anleitung", "Startseite", "Urheberrecht", "Über"),
+}.items()}
+
+
+def _os_lang():
+    """UI language of the operating system, mapped to one of the supported codes (English otherwise)."""
+    name = ""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            buf = ctypes.create_unicode_buffer(85)
+            ctypes.windll.kernel32.GetUserDefaultLocaleName(buf, 85)
+            name = buf.value
+        except Exception:
+            pass
+    low = name.lower()
+    if low.startswith("zh"):
+        return "zh-TW" if any(x in low for x in ("tw", "hk", "mo", "hant")) else "zh-CN"
+    base = low.split("-")[0]
+    return base if base in MENU_TEXT else "en"
 FILE_TYPES = ("PoniaMDM settings (*.json)",)
 
 
@@ -179,7 +214,7 @@ def _menu(window):
     def link(url):
         return lambda: webbrowser.open(url)
 
-    m = MENU_TEXT.get(settings.load().get("lang"), MENU_TEXT["zh-TW"])
+    m = MENU_TEXT.get(settings.load().get("lang") or _os_lang(), MENU_TEXT["en"])
     return [
         Menu(m["file"], [
             MenuAction(m["save_file"], lambda: save_file(window)),
