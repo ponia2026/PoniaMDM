@@ -153,7 +153,11 @@ const items = computed(() => (r.value && r.value.kind === 'ok') ? r.value.data.i
 
 // ---- settings: theme / language / tab / slots follow the user automatically
 function setTheme(v) { theme.value = v; document.documentElement.dataset.theme = v }
-function changeLang(code) { setLang(code); api('/api/settings', { lang: lang.value }).catch(() => {}) }
+function changeLang(code) {
+  setLang(code)
+  api('/api/settings', { lang: lang.value }).catch(() => {})
+  try { window.pywebview.api.refresh_menu(lang.value) } catch (e) { /* not in the native window */ }
+}
 let saveTimer = null
 watch([slots, tab, theme], () => {
   if (!loaded.value) return

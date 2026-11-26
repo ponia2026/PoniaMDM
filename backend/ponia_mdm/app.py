@@ -27,7 +27,7 @@ COPYRIGHT_URL = REPO + "/blob/main/NOTICE.md"
 LANGUAGES = [("en", "English"), ("zh-CN", "简体中文"), ("zh-TW", "繁體中文"), ("es", "Español"),
              ("pt", "Português"), ("ru", "Русский"), ("ja", "日本語"), ("fr", "Français"),
              ("de", "Deutsch")]
-# Native menu text. A native menu cannot be rebuilt while running, so a language change shows in the menu on next start.
+# Native menu text, one entry per language; the menu is rebuilt when the language changes.
 _K = ("file", "save_file", "open_file", "exit", "language", "theme", "system", "light", "dark",
       "help", "howto", "home", "copyright", "about")
 MENU_TEXT = {code: dict(zip(_K, values)) for code, values in {
@@ -78,6 +78,23 @@ class Api:
         import webview
         res = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
         return res[0] if res else None
+
+    def refresh_menu(self, code):
+        """Rebuild the menu bar in another language (the menu is otherwise fixed when the window opens)."""
+        import webview
+        from System import Func, Type
+        from System.Windows.Forms import MenuStrip
+        window = webview.windows[0]
+        form = window.native
+        items = _menu(window, code)
+
+        def work():
+            for c in list(form.Controls):
+                if isinstance(c, MenuStrip):
+                    form.Controls.Remove(c)
+                    c.Dispose()
+            form.set_window_menu(items)
+        form.Invoke(Func[Type](work))
 
 
 def _first(res):
@@ -205,7 +222,7 @@ def _free_port(preferred=8765):
             s.close()
 
 
-def _menu(window):
+def _menu(window, lang=None):
     from webview.menu import Menu, MenuAction, MenuSeparator
 
     def js(code):
@@ -214,7 +231,7 @@ def _menu(window):
     def link(url):
         return lambda: webbrowser.open(url)
 
-    m = MENU_TEXT.get(settings.load().get("lang") or _os_lang(), MENU_TEXT["en"])
+    m = MENU_TEXT.get(lang or settings.load().get("lang") or _os_lang(), MENU_TEXT["en"])
     return [
         Menu(m["file"], [
             MenuAction(m["save_file"], lambda: save_file(window)),
