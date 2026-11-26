@@ -181,6 +181,8 @@ async function reloadSlots() {
   res.value = { pegasus: null, emuelec: null, folder: null }
   await refreshAll()
 }
+// the About box is 640 px wide on screen, whatever the display scaling is
+const aboutWidth = () => Math.min(640 / (window.devicePixelRatio || 1), window.innerWidth * 0.94) + 'px'
 async function openAbout() { about.value = await api('/api/about'); showAbout.value = true }
 function notify(key) { res.value[tab.value] = { kind: 'error', text: t(key) } }
 
@@ -283,7 +285,7 @@ onMounted(async () => {
   </div>
 
   <div v-if="showAbout && about" class="modal" @click.self="showAbout = false">
-    <div class="dialog">
+    <div class="dialog" :style="{ width: aboutWidth() }">
       <div class="dtitle"><span>{{ t('about.title') }}</span><button class="x" :aria-label="t('about.close')" @click="showAbout = false">×</button></div>
       <div class="dbody">
         <img class="logo" src="/ponia_mark.svg" alt="Ponia" />
