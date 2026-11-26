@@ -266,10 +266,21 @@ def run(host="127.0.0.1", headless=False):
         ico = _resource("ponia.ico")
         webview.start(menu=_menu(w), icon=ico if os.path.isfile(ico) else None)
     except Exception:
-        webbrowser.open(url)
+        import traceback
+        text = traceback.format_exc()
+        path = os.path.join(settings.folder(), "PoniaMDM.window.log")
         try:
-            t.join()
-        except KeyboardInterrupt:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+        except OSError:
+            path = "(could not write a log file)"
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0, "The window could not be created. Please make sure Microsoft Edge WebView2 Runtime is installed."
+                + chr(10) * 2 + text[-700:] + chr(10) * 2 + "Log: " + path,
+                "PoniaMDM", 0x10)
+        except Exception:
             pass
     server.should_exit = True
 

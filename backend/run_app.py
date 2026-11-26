@@ -35,8 +35,27 @@ def _report(text):
         pass
 
 
+def _unblock_downloaded_files():
+    """A zip downloaded from the web leaves a Zone.Identifier mark on every extracted file, and the .NET
+    runtime used for the window refuses to load marked assemblies. Remove the mark from the program folder."""
+    if not getattr(sys, "frozen", False) or sys.platform != "win32":
+        return
+    top = os.path.dirname(sys.executable)
+    inner = getattr(sys, "_MEIPASS", None) or os.path.join(top, "_internal")
+    for base in (inner, top):
+        for dirpath, _dirs, files in os.walk(base):
+            for name in files:
+                try:
+                    os.remove(os.path.join(dirpath, name) + ":Zone.Identifier")
+                except OSError:
+                    pass
+            if base == top:
+                break                                    # the exe folder itself: top level only
+
+
 if __name__ == "__main__":
     try:
+        _unblock_downloaded_files()
         from ponia_mdm.app import run
         run()
     except SystemExit:
