@@ -13,7 +13,7 @@ export default {
   'src.ph_emuelec': 'EmuELEC 的 roms 文件夹，例如 E:\\EEROMS',
   'src.ph_folder': 'ROM 文件夹，例如 E:\\UserROM',
   'src.browse': '浏览…',
-  'src.intro_pegasus': '在每个平台文件夹内新增 Ponia metadata（metadata.ponia.txt）。原本的 Pegasus metadata、图片、影片与 ROM 都不动。',
+  'src.intro_pegasus': '在每个平台文件夹内新增 Ponia metadata（metadata.ponia.txt）。原本的 Pegasus metadata、图片、视频与 ROM 都不动。',
   'src.intro_emuelec': '读取每个平台文件夹里的 gamelist.xml，在同一个文件夹内新增 metadata.ponia.txt。原本的 gamelist.xml、图片与 ROM 都不动，图片直接引用原位置。',
   'src.intro_folder': '依扩展名、压缩文件内容、光盘文件头与文件夹名称判断每个文件的平台，在文件所在的文件夹内新增 metadata.ponia.txt。ROM 不搬动、不改名；目前只有标题与文件名，无法判断平台的文件不会写入。',
   'src.found_pegasus': '找到 {n} 个含 Pegasus metadata 的文件夹',
