@@ -10,7 +10,7 @@ PEG = "collection: FC\r\nextensions: nes\r\n\r\ngame: A\r\nfile: a.nes\r\nreleas
 def test_pegasus_cycle(tmp_path):
     d = tmp_path / "Roms" / "FC"
     d.mkdir(parents=True)
-    (d / "metadata.pegasus.txt").write_text(PEG, encoding="utf-8")
+    (d / "metadata.pegasus.txt").write_bytes(PEG.encode("utf-8"))      # bytes: no newline translation on Windows
     root = str(tmp_path / "Roms")
     assert ops.status("pegasus", root)["state"] == "idle"
     assert ops.status("pegasus", str(tmp_path / "gone"))["state"] == "offline"
